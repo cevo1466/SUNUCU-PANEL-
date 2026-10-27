@@ -91,16 +91,35 @@ function logPath() {
  * kapatıldığında geçebiliyordu.
  */
 async function isAlreadyRunning(): Promise<boolean> {
-  if (!fs.existsSync(path.join(PGDATA_DIR, "postmaster.pid"))) return false;
+  const pidFile = path.join(PGDATA_DIR, "postmaster.pid");
+  if (!fs.existsSync(pidFile)) return false;
   try {
     await execFileAsync(path.join(PG_BIN_DIR, "pg_ctl"), ["-D", PGDATA_DIR, "status"], {
       env: pgEnv(),
     });
-    return true;
   } catch {
     // Çıkış kodu 0 değil — süreç yok, geride kalmış bir kilit dosyası var.
     return false;
   }
+
+  // Docker yeniden oluşturulunca eski postmaster PID'si başka bir sürece
+  // verilebilir. pg_ctl yalnızca PID'nin varlığını görüp yanlışlıkla "çalışıyor"
+  // diyebilir; o durumda bağlantı ECONNREFUSED olur ve panel açılmaz.
+  const pid = Number((await fsp.readFile(pidFile, "utf8")).split("\n", 1)[0]);
+  if (!Number.isSafeInteger(pid) || pid < 1) return false;
+  let executable = "";
+  try {
+    executable = await fsp.readlink(`/proc/${pid}/exe`);
+  } catch {
+    // PID artık yoksa pg_ctl start eski dosyayı temizleyebilir.
+    return false;
+  }
+  if (path.basename(executable) !== "postgres") {
+    console.log(`» Eski PostgreSQL PID dosyası temizleniyor (PID ${pid} artık PostgreSQL değil)`);
+    await fsp.unlink(pidFile);
+    return false;
+  }
+  return true;
 }
 
 /**

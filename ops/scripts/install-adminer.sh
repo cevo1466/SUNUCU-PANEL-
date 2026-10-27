@@ -24,17 +24,18 @@ if [ -f "$TARGET_FILE" ]; then
   echo "» $TARGET_FILE zaten var, indirme atlanıyor."
 else
   command -v curl >/dev/null 2>&1 || fail "curl yok — adminer.php'yi elle $TARGET_FILE konumuna kopyalayın (https://www.adminer.org/)."
-  # v6'dan beri sabit "adminer.php" varlığı yok — sürümlü dosya adları var
-  # (adminer-6.0.1.php gibi); GitHub API'den gerçek indirme URL'i çözülür.
-  echo "» En güncel Adminer sürümü GitHub API'den bulunuyor..."
-  URL="$(curl -fsSL https://api.github.com/repos/vrana/adminer/releases/latest \
-    | grep -o '"browser_download_url": *"[^"]*/adminer-[0-9][^"/]*\.php"' \
-    | grep -v -- '-en\.php"\|-mysql' \
-    | head -1 \
-    | sed -E 's/.*"(https:[^"]+)"/\1/')"
-  [ -n "$URL" ] || fail "GitHub release'de uygun adminer-*.php bulunamadı — elle $TARGET_FILE konumuna kopyalayın (https://www.adminer.org/)."
-  echo "» $URL indiriliyor..."
-  curl -fsSL "$URL" -o "$TARGET_FILE" || fail "İndirme başarısız — internet erişimi yoksa adminer.php'yi elle $TARGET_FILE konumuna kopyalayın (https://www.adminer.org/)."
+  # Adminer'in resmi sabit bağlantısı güncel kararlı sürüme yönlenir.
+  # GitHub API hız sınırına bağlı indirme kurulumları bozmasın.
+  echo "» Adminer resmi siteden indiriliyor..."
+  umask 077
+  temp_file="$TARGET_DIR/.adminer.download.$$"
+  : > "$temp_file"
+  trap 'rm -f "$temp_file"' EXIT
+  curl -fsSL --retry 3 --connect-timeout 10 https://www.adminer.org/latest.php -o "$temp_file" \
+    || fail "İndirme başarısız — internet erişimi yoksa adminer.php'yi elle $TARGET_FILE konumuna kopyalayın (https://www.adminer.org/)."
+  php -l "$temp_file" >/dev/null || fail "İndirilen Adminer dosyası geçerli PHP değil."
+  mv "$temp_file" "$TARGET_FILE"
+  trap - EXIT
 fi
 
 echo "» Kurulum tamam. Servisi başlatmak için:"

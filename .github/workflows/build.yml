@@ -80,6 +80,11 @@ jobs:
           '
       - name: Panel feature tests
         run: docker exec panel-smoke su - panelops -c 'cd /var/www/vhosts/studio-panel && SKIP_OPTIONAL_HEADROOM=1 npm test --workspace=apps/api'
+      - name: Short admin password is accepted
+        run: |
+          result=$(printf 'abc\n' | docker exec -i -w /var/www/vhosts/studio-panel panel-smoke \
+            node ops/scripts/seed-admin.mjs ci-short-password@example.net ci-short)
+          test "$result" = 'Yönetici hesabı oluşturuldu.'
       - name: Restart and recreation recovery
         run: |
           docker restart panel-smoke
