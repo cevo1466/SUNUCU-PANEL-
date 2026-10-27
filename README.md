@@ -20,6 +20,14 @@ sudo bash /opt/studio-panel-installer/configure-domain.sh
 
 Kurulum sorularından çıkıldıysa ve `.env` henüz oluşmadıysa aynı GitHub komutu mevcut klonu güncelleyip kurulum sorularını yeniden açar. `.env` oluştuysa mevcut kurulumun durumunu incele; dizini silme.
 
+Mevcut kurulumu, domainleri ve veritabanını koruyarak yeni panel sürümüne geçirmek için:
+
+```bash
+sudo bash -c 'cd /opt/studio-panel-installer && git pull --ff-only origin main && bash update.sh'
+```
+
+Bu işlem önce yeni Docker imajını oluşturur, sonra paneli kısa süre durdurup kaynak kodunu günceller. `.env.loopkit`, PostgreSQL verileri, üretilmiş ayarlar, yedekler ve günlükler korunur. Üzerine yazılan eski kaynak dosyaları `data/upgrade-backups` altına alınır; sağlık kontrolü başarısız olursa otomatik geri yükleme denenir.
+
 Depo özel tutulursa anonim `curl` komutu çalışmaz. Bu durumda önce yeni VDS'ye GitHub erişimi tanımlayıp depoyu klonlamak, ardından `sudo bash install.sh` çalıştırmak gerekir.
 
 ## Ön koşullar
