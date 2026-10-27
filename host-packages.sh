@@ -32,7 +32,10 @@ install_host_tools() {
     apt-get update -qq
     apt-get install -y -qq ca-certificates curl git openssl iproute2
   else
-    dnf install -y ca-certificates curl git openssl iproute dnf-plugins-core
+    dnf install -y ca-certificates git openssl iproute dnf-plugins-core
+    if ! command -v curl >/dev/null 2>&1; then
+      dnf install -y curl-minimal
+    fi
   fi
 }
 
