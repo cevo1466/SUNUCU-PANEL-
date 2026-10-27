@@ -27,7 +27,7 @@ else
   # Adminer'in resmi sabit bağlantısı güncel kararlı sürüme yönlenir.
   # GitHub API hız sınırına bağlı indirme kurulumları bozmasın.
   echo "» Adminer resmi siteden indiriliyor..."
-  temp_file="$(mktemp "$TARGET_DIR/.adminer.XXXXXX")"
+  temp_file="$(mktemp "$TARGET_DIR/.adminer.XXXXXX.php")"
   trap 'rm -f "$temp_file"' EXIT
   curl -fsSL --retry 3 --connect-timeout 10 https://www.adminer.org/latest.php -o "$temp_file" \
     || fail "İndirme başarısız — internet erişimi yoksa adminer.php'yi elle $TARGET_FILE konumuna kopyalayın (https://www.adminer.org/)."
