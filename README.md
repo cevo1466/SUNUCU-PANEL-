@@ -16,7 +16,6 @@ Depo özel tutulursa anonim `curl` komutu çalışmaz. Bu durumda önce yeni VDS
 
 ## Ön koşullar
 
-- Temiz Ubuntu 24.04/26.04 LTS x86_64, en az 2 vCPU, 4 GB RAM, 40 GB SSD önerilir.
 - 21, 25, 53 TCP/UDP, 80, 443, 465, 587, 993, 995 ve 30000–30100 TCP portları VDS sağlayıcısında açık olmalı. Genel IPv4 adresi VDS ağ arayüzüne atanmış olmalıdır; DNS 53 portu yalnız bu IP üzerinde açılır, böylece Ubuntu'nun yerel DNS çözücüsüyle çakışmaz.
 - Panel alan adının ve `mail.<posta-alanı>` A kayıtlarının yeni VDS IP adresine dönmesi gerekir. Kurulum DNS hazırsa Let's Encrypt sertifikalarını otomatik ister; hazır değilse servisleri kurar ve sertifikaların beklediğini bildirir. Sertifika alınmadan yönetici girişi yapmayın.
 - DNS kayıtları kurulumdan sonra hazır olursa zamanlayıcı eksik panel ve posta sertifikalarını altı saatte bir tekrar dener; ardından günlük yenileme çalışır.
