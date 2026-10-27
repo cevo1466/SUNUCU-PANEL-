@@ -1,13 +1,13 @@
 # Temiz sunucu paneli kurulumu
 
-Bu depo, mevcut sunucudaki Studio Panel kaynak kodunu ve servislerini **müşteri verisi olmadan** yeni bir Ubuntu VDS'ye kurar. Kurulum canlı sunucunun dosyalarını, veritabanlarını, posta kutularını, sertifikalarını ve anahtarlarını taşımaz.
+Bu depo, mevcut sunucudaki Studio Panel kaynak kodunu ve servislerini **müşteri verisi olmadan** yeni bir Linux VDS'ye kurar. Kurulum canlı sunucunun dosyalarını, veritabanlarını, posta kutularını, sertifikalarını ve anahtarlarını taşımaz.
 
 ## Tek komut
 
-Depo herkese açık erişimdeyse temiz Ubuntu 24.04/26.04 LTS x86_64 sunucuda root olarak:
+Desteklenen temiz x86_64 Linux VDS'de sudo yetkili bir hesapla (`root` iseniz `sudo` önekini çıkarın):
 
 ```bash
-bash -c 'set -euo pipefail; apt-get update -qq; apt-get install -y -qq curl ca-certificates; curl -fsSL https://raw.githubusercontent.com/cevo1466/SUNUCU-PANEL-/main/bootstrap.sh | bash'
+sudo bash -c 'set -euo pipefail; if ! command -v curl >/dev/null; then if command -v apt-get >/dev/null; then apt-get update -qq && apt-get install -y -qq curl ca-certificates; elif command -v dnf >/dev/null; then dnf install -y curl ca-certificates; else echo "curl kurulamadı: apt-get veya dnf gerekli" >&2; exit 1; fi; fi; curl -fsSL https://raw.githubusercontent.com/cevo1466/SUNUCU-PANEL-/main/bootstrap.sh | bash'
 ```
 
 Komut panelin görünen adını, Docker konteyner adını, `su -` ile kullanılacak hesabı, panel ve posta alan adlarını, yetkili DNS adını, yönetici e-postasını ve yönetici parolasını sorar. Sonunda `docker exec -it <seçilen-konteyner> sh` ve içeride `su - <seçilen-kullanıcı>` çalışır.
@@ -16,13 +16,15 @@ Depo özel tutulursa anonim `curl` komutu çalışmaz. Bu durumda önce yeni VDS
 
 ## Ön koşullar
 
-- 21, 25, 53 TCP/UDP, 80, 443, 465, 587, 993, 995 ve 30000–30100 TCP portları VDS sağlayıcısında açık olmalı. Genel IPv4 adresi VDS ağ arayüzüne atanmış olmalıdır; DNS 53 portu yalnız bu IP üzerinde açılır, böylece Ubuntu'nun yerel DNS çözücüsüyle çakışmaz.
+- Desteklenen sistemler: Ubuntu 22.04/24.04/26.04 LTS, Debian 12/13, AlmaLinux 9/10, Rocky Linux 9/10 ve CentOS Stream 9/10 (x86_64, systemd, apt-get veya dnf). En az 2 vCPU, 4 GB RAM ve 25 GB boş disk gerekir; 40 GB SSD önerilir. LXC/OpenVZ gibi Docker-in-Docker veya ayrıcalıklı konteyner çalıştırmayan sanal sunucular uygun değildir.
+- `Temporary failure resolving` görülürse sunucunun DNS/ağ ayarını düzeltin; dağıtım desteği bu bağlantı hatasını gidermez. `getent hosts raw.githubusercontent.com` IP döndürmelidir.
+- 21, 25, 53 TCP/UDP, 80, 443, 465, 587, 993, 995 ve 30000–30100 TCP portları VDS sağlayıcısında açık olmalı. Genel IPv4 adresi VDS ağ arayüzüne atanmış olmalıdır; DNS 53 portu yalnız bu IP üzerinde açılır, böylece yerel DNS çözücüsüyle çakışmaz.
 - Panel alan adının ve `mail.<posta-alanı>` A kayıtlarının yeni VDS IP adresine dönmesi gerekir. Kurulum DNS hazırsa Let's Encrypt sertifikalarını otomatik ister; hazır değilse servisleri kurar ve sertifikaların beklediğini bildirir. Sertifika alınmadan yönetici girişi yapmayın.
 - DNS kayıtları kurulumdan sonra hazır olursa zamanlayıcı eksik panel ve posta sertifikalarını altı saatte bir tekrar dener; ardından günlük yenileme çalışır.
 - Sağlayıcının 25. portu kapatmadığından emin olun. PTR/rDNS, SPF, DKIM ve DMARC kayıtları e-posta teslimatı için ayrıca yapılandırılmalıdır.
 - Yerel BIND DNS servisi ve yeni domainler için zone üretimi kurulur. Alan adı kayıt şirketinde NS delegasyonu ve gerekiyorsa glue kaydı ayrıca girilmelidir; ikinci NS kullanılacaksa ayrı bir DNS sunucusu gerekir.
 - Bu kurulum ayrı Docker-in-Docker mimarisini kullanır ve konteyneri `privileged` açar; tıpkı incelenen canlı panel gibi. Yeni VDS yalnızca bu panele ayrılmalıdır.
-- Konteynere CPU veya RAM için yapay üst sınır konmaz; VDS kaynaklarını kullanır. Ubuntu ve Docker'ın kendi payı her zaman gerekir.
+- Konteynere CPU veya RAM için yapay üst sınır konmaz; VDS kaynaklarını kullanır. Host işletim sistemi ve Docker'ın kendi payı her zaman gerekir.
 
 ## Kurulan bileşenler
 
