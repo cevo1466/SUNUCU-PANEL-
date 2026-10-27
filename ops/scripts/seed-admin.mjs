@@ -11,8 +11,8 @@ if (!email || !username || !process.env.DATABASE_URL) {
 let password = "";
 for await (const chunk of process.stdin) password += chunk.toString();
 password = password.replace(/\r?\n$/, "");
-if (password.length < 16) {
-  console.error("Yönetici parolası en az 16 karakter olmalı.");
+if (password.length === 0) {
+  console.error("Yönetici parolası boş olamaz.");
   process.exit(2);
 }
 

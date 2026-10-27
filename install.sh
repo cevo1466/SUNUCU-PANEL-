@@ -26,21 +26,44 @@ disk_gib=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
 
 ask() {
   local __name="$1" prompt="$2" default="$3" answer
-  read -r -p "$prompt [$default]: " answer </dev/tty
+  read -r -p "$prompt [$default]: " answer </dev/tty || err "Giriş iptal edildi."
   printf -v "$__name" '%s' "${answer:-$default}"
 }
-ask panel_name 'Panelde görünecek ad' 'Studio Panel'
-[[ "$panel_name" =~ ^[[:alnum:][:space:]_-]{2,60}$ ]] || err "Panel adı harf, rakam, boşluk, _ veya - içermeli."
-ask container_name 'Docker konteyner adı' 'core-panel'
-[[ "$container_name" =~ ^[a-z][a-z0-9_-]{1,49}$ ]] || err "Konteyner adı küçük harfle başlamalı, yalnız a-z 0-9 _ - içermeli."
-ask shell_user 'Konteyner içindeki kullanıcı adı (su - ile giriş)' 'devuser'
-[[ "$shell_user" =~ ^[a-z][a-z0-9_-]{1,31}$ ]] || err "Kullanıcı adı küçük harfle başlamalı, yalnız a-z 0-9 _ - içermeli."
-case "$shell_user" in
-  root|daemon|bin|sys|sync|mail|ftp|www-data|mysql|postgres|redis|named|opendkim|postfix|dovecot|docker|nobody)
-    err "Bu kullanıcı adı sistem servisi tarafından kullanılıyor; başka ad seç."
-    ;;
-esac
-ask panel_host 'Panel alan adı (henüz yoksa yok yaz)' 'yok'
+ask_valid() {
+  local __name="$1" prompt="$2" default="$3" validator="$4" message="$5"
+  while :; do
+    ask "$__name" "$prompt" "$default"
+    if "$validator" "${!__name}"; then return 0; fi
+    printf 'Geçersiz giriş: %s Tekrar dene.\n' "$message" >&2
+  done
+}
+valid_panel_name() { [[ "$1" =~ ^[[:alnum:][:space:]_-]{2,60}$ ]]; }
+valid_container_name() { [[ "$1" =~ ^[a-z][a-z0-9_-]{1,49}$ ]]; }
+valid_shell_user() {
+  [[ "$1" =~ ^[a-z][a-z0-9_-]{1,31}$ ]] || return 1
+  case "$1" in
+    root|daemon|bin|sys|sync|mail|ftp|www-data|mysql|postgres|redis|named|opendkim|postfix|dovecot|docker|nobody) return 1;;
+  esac
+}
+valid_domain() {
+  [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || return 1
+  case "${1,,}" in example.com|*.example.com|*.example|*.invalid|*.test|*.localhost) return 1;; esac
+}
+valid_panel_host() { [[ "$1" == yok ]] || valid_domain "$1"; }
+valid_optional_domain() { [[ -z "$1" ]] || valid_domain "$1"; }
+valid_email() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; }
+valid_admin_user() { [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]]; }
+valid_ipv4() {
+  local a b c d octet
+  [[ "$1" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+  IFS=. read -r a b c d <<< "$1"
+  for octet in "$a" "$b" "$c" "$d"; do (( 10#$octet <= 255 )) || return 1; done
+}
+
+ask_valid panel_name 'Panelde görünecek ad' 'Studio Panel' valid_panel_name '2-60 karakter; harf, rakam, boşluk, _ veya - kullan.'
+ask_valid container_name 'Docker konteyner adı' 'core-panel' valid_container_name 'Küçük harfle başla; yalnız a-z, 0-9, _ veya - kullan.'
+ask_valid shell_user 'Konteyner kullanıcı adı (yalnız ad; su komutunu yazma)' 'devuser' valid_shell_user 'Küçük harfle başla; yalnız a-z, 0-9, _ veya - kullan ve servis adlarından kaçın.'
+ask_valid panel_host 'Panel alan adı (henüz yoksa yok yaz)' 'yok' valid_panel_host 'Gerçek bir alan adı veya yok yaz.'
 domain_pending=0
 if [[ "$panel_host" == yok ]]; then
   domain_pending=1
@@ -50,35 +73,31 @@ if [[ "$panel_host" == yok ]]; then
   dns_secondary_ns=''
   say "Alan adı olmadan kurulum: panel IP üzerinden HTTP ile açılacak. SSL ve gerçek e-posta alan adı daha sonra etkinleşir."
 else
-  [[ "$panel_host" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir panel alan adı gir."
-  ask mail_domain 'Posta alanı (mail.<alan> kullanılacak)' 'example.com'
-  [[ "$mail_domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir posta alanı gir."
-  ask dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain"
-  [[ "$dns_primary_ns" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir DNS sunucu adı gir."
-  ask dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' ''
-  [[ -z "$dns_secondary_ns" || "$dns_secondary_ns" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir ikinci DNS sunucu adı gir."
+  ask_valid mail_domain 'Posta alanı (mail.<alan> kullanılacak)' '' valid_domain 'Sahip olduğun gerçek alan adını gir.'
+  ask_valid dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain" valid_domain 'Geçerli bir DNS sunucu adı gir.'
+  ask_valid dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' '' valid_optional_domain 'Geçerli bir DNS sunucu adı gir veya boş bırak.'
 fi
 if (( domain_pending )); then
-  ask admin_email 'Yönetici giriş e-posta adresi (kullandığın gerçek bir adres)' ''
+  ask_valid admin_email 'Yönetici giriş e-posta adresi (kullandığın gerçek bir adres)' '' valid_email 'Geçerli bir e-posta adresi gir.'
 else
-  ask admin_email 'Yönetici giriş e-posta adresi' "admin@$mail_domain"
+  ask_valid admin_email 'Yönetici giriş e-posta adresi' "admin@$mail_domain" valid_email 'Geçerli bir e-posta adresi gir.'
 fi
-[[ "$admin_email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || err "Geçerli bir e-posta adresi gir."
-ask admin_user 'Yönetici kullanıcı adı' 'admin'
-[[ "$admin_user" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] || err "Yönetici adı 3-32 karakter olmalı."
-read -r -s -p 'Yönetici parolası (en az 16 karakter): ' admin_password </dev/tty; printf '\n'
-(( ${#admin_password} >= 16 )) || err "Parola en az 16 karakter olmalı."
-read -r -s -p 'Parolayı tekrar gir: ' password_again </dev/tty; printf '\n'
-[[ "$admin_password" == "$password_again" ]] || err "Parolalar eşleşmiyor."
+ask_valid admin_user 'Yönetici kullanıcı adı' 'admin' valid_admin_user '3-32 karakterlik bir kullanıcı adı gir.'
+while :; do
+  read -r -s -p 'Yönetici parolası: ' admin_password </dev/tty || err "Giriş iptal edildi."
+  printf '\n'
+  if [[ -z "$admin_password" ]]; then printf 'Parola boş olamaz. Tekrar dene.\n' >&2; continue; fi
+  read -r -s -p 'Parolayı tekrar gir: ' password_again </dev/tty || err "Giriş iptal edildi."
+  printf '\n'
+  if [[ "$admin_password" == "$password_again" ]]; then break; fi
+  printf 'Parolalar eşleşmiyor. Tekrar dene.\n' >&2
+done
 unset password_again
 
 public_ip=""
 if command -v curl >/dev/null 2>&1; then public_ip=$(curl -4fsS --max-time 5 https://api.ipify.org || true); fi
 [[ "$public_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || public_ip=""
-ask public_ip 'VDS genel IPv4 adresi' "$public_ip"
-[[ "$public_ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || err "Geçerli bir IPv4 adresi gir."
-IFS=. read -r ip1 ip2 ip3 ip4 <<< "$public_ip"
-for octet in "$ip1" "$ip2" "$ip3" "$ip4"; do (( 10#$octet <= 255 )) || err "Geçerli bir IPv4 adresi gir."; done
+ask_valid public_ip 'VDS genel IPv4 adresi' "$public_ip" valid_ipv4 'Geçerli bir IPv4 adresi gir.'
 
 say "Docker Engine kuruluyor"
 install_host_tools

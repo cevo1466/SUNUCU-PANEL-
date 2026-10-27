@@ -12,22 +12,27 @@ grep -qx 'PANEL_DOMAIN_PENDING=1' "$ENV_FILE" || err "Bu kurulum alan adı bekle
 
 ask() {
   local __name="$1" prompt="$2" default="$3" answer
-  read -r -p "$prompt [$default]: " answer </dev/tty
+  read -r -p "$prompt [$default]: " answer </dev/tty || err "Giriş iptal edildi."
   printf -v "$__name" '%s' "${answer:-$default}"
+}
+ask_valid() {
+  local __name="$1" prompt="$2" default="$3" validator="$4" message="$5"
+  while :; do
+    ask "$__name" "$prompt" "$default"
+    if "$validator" "${!__name}"; then return 0; fi
+    printf 'Geçersiz giriş: %s Tekrar dene.\n' "$message" >&2
+  done
 }
 valid_domain() {
   [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || return 1
-  case "$1" in *.invalid|*.example|*.test|*.localhost) return 1;; esac
+  case "${1,,}" in example.com|*.example.com|*.example|*.invalid|*.test|*.localhost) return 1;; esac
 }
+valid_optional_domain() { [[ -z "$1" ]] || valid_domain "$1"; }
 
-ask panel_host 'Panel alan adı' ''
-valid_domain "$panel_host" || err "Sahip olduğun gerçek bir panel alan adı gir."
-ask mail_domain 'Posta alanı' ''
-valid_domain "$mail_domain" || err "Sahip olduğun gerçek bir posta alanı gir."
-ask dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain"
-valid_domain "$dns_primary_ns" || err "Geçerli bir DNS sunucu adı gir."
-ask dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' ''
-[[ -z "$dns_secondary_ns" ]] || valid_domain "$dns_secondary_ns" || err "Geçerli bir ikinci DNS sunucu adı gir."
+ask_valid panel_host 'Panel alan adı' '' valid_domain 'Sahip olduğun gerçek bir panel alan adı gir.'
+ask_valid mail_domain 'Posta alanı' '' valid_domain 'Sahip olduğun gerçek bir posta alanı gir.'
+ask_valid dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain" valid_domain 'Geçerli bir DNS sunucu adı gir.'
+ask_valid dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' '' valid_optional_domain 'Geçerli bir DNS sunucu adı gir veya boş bırak.'
 
 container_name=$(sed -n 's/^PANEL_CONTAINER_NAME=//p' "$ENV_FILE" | head -1)
 public_ip=$(sed -n 's/^SERVER_PUBLIC_IP=//p' "$ENV_FILE" | head -1)
