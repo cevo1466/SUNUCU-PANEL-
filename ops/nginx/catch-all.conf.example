@@ -1,0 +1,22 @@
+# 443 icin "eslesmeyeni reddet" blogu.
+#
+# NEDEN VAR (gercek olay, 2026-08-31): 443'te tek bir server blogu vardi
+# (musteri.test) ve o port icin `default_server` TANIMLI DEGILDI. nginx'in
+# kurali: bir port icin default_server belirtilmemisse O PORTUN ILK BLOGU
+# default olur. Sonuc: bu IP'ye yonlendirilen HERHANGI bir alan adi, HTTPS
+# uzerinden baska bir musterinin sitesini goruyordu. Kullanici panel.ornek.test'u
+# acinca baska musterinin sitesiyle karsilasti; URL dogruydu, icerik yanlisti.
+#
+# ssl_reject_handshake: TLS el sikismasi, hangi vhost'a gidilecegine karar
+# verilmeden ONCE reddedilir. Sahte bir sertifika uretmeye gerek kalmaz ve
+# hicbir icerik sizmaz. nginx 1.19.4+ gerektirir (buradaki surum 1.31.4).
+#
+# Port 80 icin ayni sey YAPILMADI: orada studio-panel.conf zaten
+# `default_server` ve panelin IP ile erisilebilir olmasi gerekiyor.
+
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
+    ssl_reject_handshake on;
+}

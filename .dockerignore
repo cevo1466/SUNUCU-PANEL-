@@ -1,0 +1,14 @@
+.git
+.env*
+**/node_modules
+**/.next
+**/dist
+**/.pgdata
+**/.pg-runtime
+ops/generated
+ops/backups
+ops/run
+ops/*.log
+data
+*.tar
+*.tar.gz

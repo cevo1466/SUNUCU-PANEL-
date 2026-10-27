@@ -1,0 +1,45 @@
+# Webmail — TUM `webmail.<alan adi>` adresleri.
+#
+# NEDEN JOKER (webmail.*): panel cok alan adi barindiriyor ve her musteri
+# kendi adresinden webmail'e girebilmeli — webmail.musteri.test,
+# webmail.ornek.test, ... Her alan adi icin ayri bir server blogu uretmek
+# hem gereksiz hem de yeni domain eklendiginde unutulmaya acik olurdu.
+# nginx'te `server_name ~^webmail\.` regex eslesmesi bunu tek blokta cozer.
+#
+# Panelle AYNI Next.js uygulamasina gider (3000); hostname'e gore ayrisma
+# `apps/web/src/middleware.ts` icinde yapilir (rewrite'lardan ONCE calismasi
+# gerektigi icin next.config'te degil).
+#
+# HTTPS: her alan adi icin ayri sertifika gerekir. Sertifikasi olan adlar
+# `webmail-ssl.<domain>.conf` olarak ayrica uretilir
+# (ops/scripts/webmail-ssl.sh). Bu blok HTTP'yi ve ACME dogrulamasini karsilar.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ~^webmail\..+$;
+
+    # Let's Encrypt HTTP-01 dogrulamasi — tum webmail alt alan adlari icin
+    # ortak webroot.
+    location /.well-known/acme-challenge/ {
+        root /var/www/vhosts/_acme;
+    }
+
+    location / {
+        proxy_pass http://172.19.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Ek dosyali mail: ekler base64 olarak JSON govdesinde gider, yani
+        # 25 MB'lik ek ~34 MB govde demek (sunucu siniri:
+        # routes/webmail.ts MAX_TOTAL_ATTACHMENT_BYTES).
+        client_max_body_size 40m;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}

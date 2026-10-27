@@ -1,0 +1,42 @@
+# Dış Nginx konteyneri için Studio Panel reverse proxy.
+# Bu ortamda Nginx konteynerinden Docker gateway 172.19.0.1:3000 erişilebilir.
+# Yetkili kullanıcı bu dosyayı /etc/nginx/conf.d/studio-panel.conf konumuna
+# kopyalayıp `nginx -t && nginx -s reload` çalıştırmalıdır.
+
+# --- IP ve bilinmeyen adlar: kanonik panel adresine 301 ---
+#
+# Panel artik https://panel.ornek.test uzerinde (ops/scripts/panel-ssl.sh).
+# IP uzerinden duz HTTP ile girmek oturum cerezini ve butun panel trafigini
+# sifresiz tasiyordu; bu blok artik icerik SUNMUYOR, kanonik adrese
+# yonlendiriyor.
+#
+# ADRESI DEGISTIRMEK ICIN: asagidaki `return 301` satirindaki hostname'i
+# guncelleyin, sonra `sudo ops/scripts/panel-ssl.sh <yeni-hostname>`.
+#
+# GERI ALMAK ICIN (panel adresine erisemezseniz), tek satir:
+#   sudo sed -i 's|location / { return 301 [^;]*; }|location / { proxy_pass http://172.19.0.1:3000; proxy_set_header Host $host; }|' /etc/nginx/conf.d/studio-panel.conf \
+#     && docker exec proxy-server nginx -t && docker exec proxy-server nginx -s reload
+# SSH erisiminiz oldugu surece panele geri donebilirsiniz.
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name 203.0.113.10 _;
+
+    # ACME YONLENDIRMEDEN MUAF. Bu blok default_server oldugu icin kendi
+    # vhost'u henuz olmayan HER ad buraya duser; dogrulama istegi 301 yerse
+    # o adlarin sertifikasi hic alinamaz. "^~" oneki "location /" ifadesine
+    # gore onceliklidir, yani sira degil ek belirleyici.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/vhosts/_acme;
+    }
+
+    # Yükleme sınırı — zincirin nginx halkası.
+    #
+    # Bu değer API (apps/api/src/lib/files.ts MAX_UPLOAD_BYTES) ve Next.js
+    # (apps/web/next.config.ts middlewareClientMaxBodySize) ile AYNI olmalı.
+    # Üçünden en dar olan kazanır; nginx geride kalırsa istek API'ye hiç
+    # ulaşmaz ve kullanıcı sebebi görünmeyen bir 413 alır.
+    client_max_body_size 2048m;
+
+    location / { return 301 https://panel.ornek.test$request_uri; }
+}

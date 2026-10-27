@@ -1,0 +1,107 @@
+name: Docker image build
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        run: |
+          bash -n bootstrap.sh install.sh deploy/container-init.sh
+          for script in ops/scripts/*.sh; do bash -n "$script"; done
+      - name: Compose configuration
+        run: |
+          cat > "$RUNNER_TEMP/panel.env" <<'EOF'
+          PANEL_DISPLAY_NAME=Deneme Paneli
+          PANEL_CONTAINER_NAME=panel-smoke
+          PANEL_SHELL_USER=panelops
+          PANEL_HOSTNAME=panel.example.com
+          MAIL_HOSTNAME=mail.example.com
+          DNS_PRIMARY_NS=ns1.example.com
+          DNS_SECONDARY_NS=
+          DNS_HOSTMASTER_EMAIL=hostmaster@example.com
+          SERVER_PUBLIC_IP=203.0.113.10
+          PANEL_OWNER_EMAIL=admin@example.com
+          STUDIO_PG_USER=studio
+          STUDIO_PG_PASSWORD=ci-only-pg-password
+          STUDIO_PG_DATABASE=studio_panel
+          MYSQL_ADMIN_USER=panel_admin
+          MYSQL_ADMIN_PASSWORD=ci-only-mysql-password
+          DATABASE_URL=postgres://studio:ci-only-pg-password@127.0.0.1:5433/studio_panel
+          SESSION_SECRET=ci-only-session-secret-long-enough-123456
+          EOF
+          docker compose --env-file "$RUNNER_TEMP/panel.env" config -q
+      - name: Docker build
+        run: docker build --build-arg PANEL_DISPLAY_NAME='Deneme Paneli' --build-arg PANEL_SHELL_USER=panelops -t clean-panel:test .
+      - name: Fresh container smoke test
+        run: |
+          mkdir -p "$RUNNER_TEMP/panel-docker" "$RUNNER_TEMP/panel-vhosts" "$RUNNER_TEMP/panel-state"
+          docker run -d --name panel-smoke --privileged --init --cpus=2 --memory=4g \
+            --env-file "$RUNNER_TEMP/panel.env" \
+            -v "$RUNNER_TEMP/panel-docker:/var/lib/docker" \
+            -v "$RUNNER_TEMP/panel-vhosts:/var/www/vhosts" \
+            -v "$RUNNER_TEMP/panel-state:/var/lib/panel-state" \
+            clean-panel:test
+          ready=0
+          for i in $(seq 1 180); do
+            if docker exec panel-smoke test -f /var/www/vhosts/studio-panel/ops/run/.installer-ready 2>/dev/null; then ready=1; break; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' panel-smoke)" != true ]; then break; fi
+            sleep 2
+          done
+          if [ "$ready" != 1 ]; then
+            docker logs --tail 80 panel-smoke
+            docker cp panel-smoke:/var/www/vhosts/studio-panel/ops/watchdog.log /tmp/panel-watchdog.log 2>/dev/null && tail -100 /tmp/panel-watchdog.log || true
+            docker cp panel-smoke:/var/lib/panel-state/mariadb-start.log /tmp/panel-mariadb.log 2>/dev/null && tail -100 /tmp/panel-mariadb.log || true
+            docker cp panel-smoke:/var/www/vhosts/studio-panel/ops/mariadb.log /tmp/panel-mariadb-watchdog.log 2>/dev/null && tail -100 /tmp/panel-mariadb-watchdog.log || true
+            exit 1
+          fi
+          docker exec panel-smoke curl -fsS http://127.0.0.1:3001/api/health
+          docker exec panel-smoke curl -fsS http://127.0.0.1:3000/login -o /dev/null
+          docker exec panel-smoke su - panelops -c 'id -u'
+          docker exec panel-smoke sh -c 'command -v unzip && grep -q backup-scheduled.sh /etc/crontabs/panelops && test ! -e /var/www/vhosts/studio-panel/ops/generated/automatic-backups.enabled'
+          docker exec panel-smoke sh -c 'doveconf -n >/dev/null && named-checkconf && postfix check'
+          docker exec panel-smoke sh -c '
+            sockets=$(netstat -ltn)
+            for port in 21 25 53 465 587 993 995; do
+              printf "%s\n" "$sockets" | grep -Eq ":${port}[[:space:]]" || { echo "TCP $port dinlemiyor" >&2; exit 1; }
+            done
+            netstat -lun | grep -Eq ":53[[:space:]]" || { echo "UDP 53 dinlemiyor" >&2; exit 1; }
+          '
+      - name: Panel feature tests
+        run: docker exec panel-smoke su - panelops -c 'cd /var/www/vhosts/studio-panel && SKIP_OPTIONAL_HEADROOM=1 npm test --workspace=apps/api'
+      - name: Restart and recreation recovery
+        run: |
+          docker restart panel-smoke
+          ready=0
+          for i in $(seq 1 90); do
+            if docker exec panel-smoke curl -fsS http://127.0.0.1:3001/api/health >/dev/null 2>&1 \
+              && docker exec panel-smoke curl -fsS http://127.0.0.1:3000/login -o /dev/null >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != 1 ]; then docker logs --tail 100 panel-smoke; exit 1; fi
+          docker exec panel-smoke sh -c 'grep -q backup-scheduled.sh /etc/crontabs/panelops && named-checkconf && postfix check'
+          docker exec panel-smoke su - panelops -c 'printf persisted > /var/www/vhosts/.ci-persistence-marker'
+          docker rm -f panel-smoke
+          docker run -d --name panel-smoke --privileged --init --cpus=2 --memory=4g \
+            --env-file "$RUNNER_TEMP/panel.env" \
+            -v "$RUNNER_TEMP/panel-docker:/var/lib/docker" \
+            -v "$RUNNER_TEMP/panel-vhosts:/var/www/vhosts" \
+            -v "$RUNNER_TEMP/panel-state:/var/lib/panel-state" \
+            clean-panel:test
+          ready=0
+          for i in $(seq 1 90); do
+            if docker exec panel-smoke curl -fsS http://127.0.0.1:3001/api/health >/dev/null 2>&1 \
+              && docker exec panel-smoke curl -fsS http://127.0.0.1:3000/login -o /dev/null >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" != 1 ]; then docker logs --tail 100 panel-smoke; exit 1; fi
+          docker exec panel-smoke sh -c 'test "$(cat /var/www/vhosts/.ci-persistence-marker)" = persisted'
