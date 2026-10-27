@@ -6,13 +6,16 @@ PANEL_SCRIPT_ROOT=/var/www/vhosts/studio-panel
 cd "$ROOT"
 err() { printf 'HATA: %s\n' "$*" >&2; exit 1; }
 say() { printf '\n» %s\n' "$*"; }
+# shellcheck disable=SC1091
+source "$ROOT/host-packages.sh"
+detect_host_os || exit 1
+if [[ "${1:-}" == --check-os && $# -eq 1 ]]; then
+  say "Desteklenen sistem: ${PRETTY_NAME:-bilinmiyor} ($PANEL_PACKAGE_MANAGER, Docker $PANEL_DOCKER_REPO deposu)"
+  exit 0
+fi
+[[ $# -eq 0 ]] || err "Kullanım: bash install.sh [--check-os]"
 [[ $EUID -eq 0 ]] || err "Kurulum root ile çalışmalı: sudo bash install.sh"
 [[ -r /dev/tty ]] || err "İsimleri ve parolayı sormak için etkileşimli terminal gerekli."
-[[ -f /etc/os-release ]] || err "Ubuntu 24.04/26.04 LTS gerekli."
-# shellcheck disable=SC1091
-source /etc/os-release
-[[ "${ID:-}" == ubuntu && "${VERSION_ID:-}" =~ ^(24\.04|26\.04)$ ]] || err "Ubuntu 24.04 veya 26.04 LTS gerekli; mevcut: ${PRETTY_NAME:-bilinmiyor}"
-[[ "$(uname -m)" == x86_64 ]] || err "Bu paket x86_64 VDS için hazırlandı."
 cpu=$(nproc)
 mem_kib=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
 disk_gib=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
@@ -63,9 +66,7 @@ IFS=. read -r ip1 ip2 ip3 ip4 <<< "$public_ip"
 for octet in "$ip1" "$ip2" "$ip3" "$ip4"; do (( 10#$octet <= 255 )) || err "Geçerli bir IPv4 adresi gir."; done
 
 say "Docker Engine kuruluyor"
-export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq ca-certificates curl gnupg git openssl iproute2
+install_host_tools
 for port in 21 25 80 443 465 587 993 995; do
   if ss -H -ltnu "sport = :$port" 2>/dev/null | grep -q .; then err "$port portu kullanımda. Boş VDS gerekli."; fi
 done
@@ -74,15 +75,7 @@ if ss -H -ltnu 'sport = :53' 2>/dev/null | awk -v ip="$public_ip" '$5 == "0.0.0.
 fi
 ip -4 -o addr show | awk '{split($4,a,"/"); print a[1]}' | grep -Fxq "$public_ip" \
   || err "Genel IP ($public_ip) VDS ağ arayüzünde yok. DNS 53 portunu güvenle bağlamak için doğrudan IP atanmış VDS gerekli."
-if ! command -v docker >/dev/null 2>&1; then
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  chmod a+r /etc/apt/keyrings/docker.asc
-  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu %s stable\n' \
-    "$(dpkg --print-architecture)" "$VERSION_CODENAME" > /etc/apt/sources.list.d/docker.list
-  apt-get update -qq
-  apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-fi
+install_host_docker
 systemctl enable --now docker
 docker compose version >/dev/null || err "Docker Compose eklentisi eksik."
 

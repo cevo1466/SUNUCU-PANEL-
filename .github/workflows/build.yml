@@ -5,13 +5,18 @@ on:
   pull_request:
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - name: Shell syntax
         run: |
-          bash -n bootstrap.sh install.sh deploy/container-init.sh
+          bash -n bootstrap.sh install.sh host-packages.sh deploy/container-init.sh
           for script in ops/scripts/*.sh; do bash -n "$script"; done
+          bash install.sh --check-os
       - name: Compose configuration
         run: |
           cat > "$RUNNER_TEMP/panel.env" <<'EOF'
@@ -105,3 +110,21 @@ jobs:
           done
           if [ "$ready" != 1 ]; then docker logs --tail 100 panel-smoke; exit 1; fi
           docker exec panel-smoke sh -c 'test "$(cat /var/www/vhosts/.ci-persistence-marker)" = persisted'
+  host-packages:
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['almalinux:9', 'almalinux:10', 'debian:12', 'debian:13']
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect host and install Docker packages
+        run: |
+          docker run --rm -v "$PWD:/work:ro" -w /work '${{ matrix.image }}' bash -euc '
+            bash install.sh --check-os
+            source host-packages.sh
+            detect_host_os
+            install_host_tools
+            install_host_docker
+            docker compose version
+          '
