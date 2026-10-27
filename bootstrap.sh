@@ -15,6 +15,13 @@ if ! command -v git >/dev/null 2>&1; then
   fi
 fi
 target=/opt/studio-panel-installer
-[[ ! -e "$target" ]] || { echo "$target zaten var; mevcut kurulum korunuyor." >&2; exit 1; }
+if [[ -d "$target/.git" ]]; then
+  [[ ! -f "$target/.env" ]] || { echo "$target içinde kurulum ayarları var; mevcut kurulum korunuyor." >&2; exit 1; }
+  [[ "$(git -C "$target" remote get-url origin)" == https://github.com/cevo1466/SUNUCU-PANEL-.git ]] \
+    || { echo "$target farklı bir depoya bağlı; otomatik güncelleme durduruldu." >&2; exit 1; }
+  git -C "$target" pull --ff-only origin main
+  exec bash "$target/install.sh"
+fi
+[[ ! -e "$target" ]] || { echo "$target zaten var ama Git deposu değil; mevcut dosyalar korunuyor." >&2; exit 1; }
 git clone --depth 1 --branch main https://github.com/cevo1466/SUNUCU-PANEL-.git "$target"
 exec bash "$target/install.sh"

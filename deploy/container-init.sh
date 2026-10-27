@@ -31,6 +31,7 @@ PANEL_DISPLAY_NAME="$PANEL_DISPLAY_NAME"
 PANEL_OWNER_EMAIL=$PANEL_OWNER_EMAIL
 PANEL_HOSTNAME=$PANEL_HOSTNAME
 MAIL_HOSTNAME=$MAIL_HOSTNAME
+PANEL_DOMAIN_PENDING=${PANEL_DOMAIN_PENDING:-0}
 SERVER_PUBLIC_IP=$SERVER_PUBLIC_IP
 DATABASE_URL=$DATABASE_URL
 STUDIO_PG_USER=$STUDIO_PG_USER
@@ -135,6 +136,7 @@ smtps inet n - n - - smtpd
 EOF
   touch "$STATE/postfix/.panel-configured"
 fi
+postconf -e "myhostname = $MAIL_HOSTNAME"
 
 if [[ ! -f "$STATE/dovecot/.panel-configured" ]]; then
   cat > /etc/dovecot/dovecot.conf <<'EOF'

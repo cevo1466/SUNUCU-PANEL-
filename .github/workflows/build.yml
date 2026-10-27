@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Shell syntax
         run: |
-          bash -n bootstrap.sh install.sh host-packages.sh deploy/container-init.sh
+          bash -n bootstrap.sh install.sh host-packages.sh configure-domain.sh deploy/container-init.sh
           for script in ops/scripts/*.sh; do bash -n "$script"; done
           bash install.sh --check-os
       - name: Compose configuration
@@ -23,9 +23,10 @@ jobs:
           PANEL_DISPLAY_NAME=Deneme Paneli
           PANEL_CONTAINER_NAME=panel-smoke
           PANEL_SHELL_USER=panelops
-          PANEL_HOSTNAME=panel.example.com
-          MAIL_HOSTNAME=mail.example.com
-          DNS_PRIMARY_NS=ns1.example.com
+          PANEL_HOSTNAME=panel.invalid
+          MAIL_HOSTNAME=mail.panel.invalid
+          PANEL_DOMAIN_PENDING=1
+          DNS_PRIMARY_NS=ns1.panel.invalid
           DNS_SECONDARY_NS=
           DNS_HOSTMASTER_EMAIL=hostmaster@example.com
           SERVER_PUBLIC_IP=203.0.113.10
@@ -65,6 +66,8 @@ jobs:
           fi
           docker exec panel-smoke curl -fsS http://127.0.0.1:3001/api/health
           docker exec panel-smoke curl -fsS http://127.0.0.1:3000/login -o /dev/null
+          docker exec panel-smoke sh -c 'grep -qx PANEL_DOMAIN_PENDING=1 /var/www/vhosts/studio-panel/.env.loopkit'
+          docker exec panel-smoke curl -fsS -H 'Host: 203.0.113.10' http://127.0.0.1/login -o /dev/null
           docker exec panel-smoke su - panelops -c 'id -u'
           docker exec panel-smoke sh -c 'command -v unzip && grep -q backup-scheduled.sh /etc/crontabs/panelops && test ! -e /var/www/vhosts/studio-panel/ops/generated/automatic-backups.enabled'
           docker exec panel-smoke sh -c 'doveconf -n >/dev/null && named-checkconf && postfix check'
