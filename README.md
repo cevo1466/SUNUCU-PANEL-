@@ -42,7 +42,7 @@ Dosya yöneticisinde `.zip`, `.tar.gz` ve `.tgz` arşivleri yüklenip bulundukla
 
 Cloudflare DNS aktarımı mevcut panel kaynak koduyla birlikte gelir. Yeni sunucuda `/opt/studio-panel-installer/.env` dosyasına `CLOUDFLARE_API_TOKEN` eklendikten sonra kurulum dizininde `docker compose --env-file .env up -d` çalıştırılır. Canlı sunucudaki token ve DNS kayıtları pakete alınmaz; Cloudflare hesabında ilgili zone ve uygun DNS yetkileri gereklidir.
 
-HetrixTools izleme için aynı `.env` dosyasına `HETRIX_API_KEY`; Telegram bildirimleri için `TELEGRAM_BOT_TOKEN` ve `TELEGRAM_CHAT_ID` eklenir. Ardından `docker compose --env-file .env up -d` komutu konteyneri yeni ayarlarla açar. Anahtarlar Git deposuna yazılmaz.
+HetrixTools izleme için aynı `.env` dosyasına kendi hesabının `HETRIX_API_KEY` anahtarı; Telegram bildirimleri için `TELEGRAM_BOT_TOKEN` ve `TELEGRAM_CHAT_ID` eklenir. Ardından `sudo docker compose --env-file .env up -d` komutu konteyneri yeni ayarlarla açar. Anahtarlar Git deposuna yazılmaz. Panel özetindeki CPU, bellek ve disk kartları doğrudan bu VDS'yi ölçer; HetrixTools sonuçları yalnız anahtar bağlandıktan sonra ayrı bir kartta görünür.
 
 ## Yedek kontrolü
 
