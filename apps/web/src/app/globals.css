@@ -1,0 +1,2069 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: false;
+}
+
+/*
+  Studio Panel — kontrol paneli tasarım sistemi.
+
+  Referans: Plesk Obsidian — yoğun bilgi, dar köşe yarıçapı, kartlarda ince
+  iki katmanlı gölge, koyu slate sol menü, beyaz çalışma yüzeyi. Token'lar
+  Plesk'in kendi bileşen kütüphanesinden ölçülerek alındı (aşağıya bakın),
+  tahminle değil.
+
+  design-reference/ klasörü plesk.com'un PAZARLAMA sitesinin analizidir
+  (hero / pricing / footer). Bir kontrol panelinin iskeleti değildir; layout
+  kaynağı olarak kullanılmaz. O klasörden alınan tek şey ai-brief.md'deki
+  "yasaklı yapay zeka belirtileri" denetim listesidir:
+  gradyan yok, glow yok, cam efekti yok, pill rozet yok, dev başlık yok,
+  dekoratif uppercase-mono etiket yok.
+*/
+
+@theme {
+  /* Plesk Obsidian'ın kendi aileleri (--pul-font-family-body / -code).
+     İndirilmiyor; bkz. layout.tsx'teki gerekçe. */
+  --font-sans: "Open Sans", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: "Consolas", "Liberation Mono", "Menlo", "DejaVu Sans Mono", "Courier New", monospace;
+}
+
+/*
+  TOKEN KATMANI — kaynak: Plesk Obsidian'ın KENDİ bileşen kütüphanesi.
+
+  Değerler `@plesk/ui-library@3.46.5` paketinin dist CSS'inden çıkarıldı
+  (`--pul-*` token'ları). Paket bağımlılık olarak EKLENMEDİ; yalnızca
+  referans olarak okundu. Böylece panel, plesk.com pazarlama sitesine değil
+  gerçek Plesk kontrol paneline yakınsıyor.
+
+  TEK BİLİNÇLİ SAPMA — kontrast: Plesk'in birincil butonu beyaz metni
+  blue-600 (#28aade) üzerine koyuyor; bu ~2.4:1 ve WCAG AA'yı geçmiyor.
+  Aynı hata kopyalanmadı: dolgu için blue-800 (#16759a, beyaz metinle 4.9:1)
+  kullanılıyor, blue-600 ise yalnızca dekoratif vurgu olarak kalıyor.
+*/
+:root {
+  /* --- Plesk ham paleti (pul-*) --- */
+  --pl-gray-100: #f0f0f0;
+  --pl-gray-200: #e5e5e5;
+  --pl-gray-300: #cccccc;
+  --pl-gray-400: #b5b5b5;
+  --pl-gray-600: #737373;
+  --pl-gray-900: #202020;
+  --pl-blue-100: #f0faff;
+  --pl-blue-200: #d6f3ff;
+  --pl-blue-600: #28aade;
+  --pl-blue-800: #16759a;
+  --pl-blue-900: #005678;
+  --pl-slate-100: #f7fafe;
+  --pl-slate-300: #b4cfe6;
+  --pl-slate-700: #536a7d;
+  --pl-slate-800: #384859;
+  --pl-slate-900: #2d3a47;
+  --pl-green-100: #ecfae3;
+  --pl-green-700: #629a1e;
+  --pl-green-800: #487f1e;
+  --pl-yellow-100: #fceed7;
+  --pl-yellow-600: #ffa04d;
+  --pl-yellow-800: #c84a0b;
+  --pl-red-100: #fff0f1;
+  --pl-red-600: #d02d4b;
+  --pl-red-700: #b30122;
+
+  /* Yüzeyler */
+  --sp-canvas: var(--pl-gray-100);
+  --sp-surface: #ffffff;
+  /* Slate-100: gri yerine hafif soğuk bir alt yüzey — tabloların başlık
+     satırını ve ikincil panelleri beyazdan ayırırken canlılık katıyor. */
+  --sp-surface-alt: var(--pl-slate-100);
+  --sp-surface-hover: var(--pl-blue-100);
+
+  /* Çizgiler */
+  --sp-line: #dededf;
+  --sp-line-strong: var(--pl-gray-300);
+
+  /* Metin — hepsi beyaz/alt yüzeyde WCAG AA (>=4.5:1) ölçüldü */
+  --sp-ink: var(--pl-gray-900);        /* 15.3:1 */
+  --sp-ink-muted: var(--pl-gray-600);  /*  4.83:1 — ikincil metnin taban rengi */
+  /* SADECE DEKORATİF: ikon konturu, ayırıcı, boş-durum simgesi.
+     2.3:1 — metin için kullanma, onun yerine --sp-ink-muted. */
+  --sp-ink-faint: var(--pl-gray-400);
+
+  /* Sol menü — Plesk'in sidebar token'larının birebir karşılığı
+     (bg-sidebar / bg-sidebar-section / bg-sidebar-selected). */
+  --sp-nav: var(--pl-slate-800);
+  --sp-nav-deep: var(--pl-slate-900);
+  --sp-nav-hover: #43566a;
+  --sp-nav-active: var(--pl-slate-700);
+  --sp-nav-ink: #e4edf5;         /* 10.4:1 menü zemininde */
+  --sp-nav-ink-dim: var(--pl-slate-300); /* 6.4:1 — grup başlıkları 11px, AA gerekiyor */
+  --sp-nav-line: #48596b;
+
+  /* Aksiyon */
+  --sp-accent: var(--pl-blue-800);       /* 4.9:1 — metin, bağlantı ve dolgu */
+  --sp-accent-hover: var(--pl-blue-900); /* 8.4:1 */
+  /* SADECE DEKORATİF vurgu: koyu menüde ikon, seçili sekme çizgisi,
+     odak halkası. Beyaz üzerinde METİN olarak kullanma. */
+  --sp-accent-bright: var(--pl-blue-600);
+  --sp-accent-soft: var(--pl-blue-100);
+  --sp-accent-soft-strong: var(--pl-blue-200);
+  --sp-accent-ink: #ffffff;
+
+  /* Durum paleti — ayrılmış. Kategorik seri rengi olarak ASLA kullanılmaz ve
+     tek başına anlam taşımaz: yanında her zaman metin etiketi bulunur.
+     Değerler Plesk'in success/warning/danger token'larından; *-ink
+     varyantları rozet METNİ içindir (AA), ana değerler işaret/dolgu içindir. */
+  --sp-ok: var(--pl-green-700);
+  --sp-ok-ink: var(--pl-green-800);   /* 4.6:1 */
+  --sp-ok-soft: var(--pl-green-100);
+  --sp-warn: var(--pl-yellow-600);    /* dolgu olarak geçer, metin olarak geçmez */
+  --sp-warn-ink: var(--pl-yellow-800);/* 4.6:1 */
+  --sp-warn-soft: var(--pl-yellow-100);
+  --sp-err: var(--pl-red-600);
+  --sp-err-ink: var(--pl-red-700);    /* 7.4:1 */
+  --sp-err-soft: var(--pl-red-100);
+
+  /* Plesk'in gerçek ölçüleri: input/alert 2px, kart 4px. */
+  --sp-radius: 2px;
+  --sp-radius-lg: 4px;
+  /* Plesk'in kart gölgesi birebir. İki katman: yakın gölge derinlik verir,
+     1px'lik yayılım kenarı çizgi olmadan tanımlar. Panelin daha önceki düz
+     görünümünün asıl sebebi bu gölgenin yokluğuydu. */
+  --sp-shadow-card: 0 2px 4px #28283426, 0 0 1px #28283459;
+  --sp-shadow-pop: 0 8px 24px #2828341f, 0 0 1px #28283459;
+  --sp-shadow-inset-input: inset 0 2px 1px #22222212;
+
+  --sp-nav-w: 232px;
+  --sp-topbar-h: 48px;
+
+  color-scheme: light;
+}
+
+/*
+  KOYU TEMA
+  =========
+  Yalnizca ANLAM katmanindaki (--sp-*) token'lar yeniden tanimlanir; ham Plesk
+  paleti (--pl-*), olculer, yaricap ve golge yapisi aynen kalir. Bileşen CSS'i
+  bu dosyada bastan sona token uzerinden yazildigi icin tek bir bileşen kurali
+  bile degistirilmedi — koyu tema token katmaninin dogal sonucu.
+
+  KONTRAST: acik temadaki titizlik burada da korundu. Asagidaki her deger
+  olculdu (WCAG AA, normal metin >=4.5:1); dekoratif olanlar isaretli.
+  Olcum: 21 cift kontrol edildi, en dusugu 3.70:1 (yalnizca dekoratif
+  --sp-ink-faint), metin tasiyan her ciftin en dusugu 5.74:1.
+
+  TEK YAPISAL FARK — vurgu rengi ters cevrildi. Acik temada --sp-accent hem
+  METIN hem DOLGU olarak kullanilabiliyordu (blue-800 beyaz uzerinde 4.9:1,
+  beyaz metin onun uzerinde 4.9:1). Koyu zeminde blue-800 metin olarak
+  okunmuyor; bu yuzden vurgu parlak maviye (#3fb6e8) tasindi ve DOLGU
+  uzerindeki metin (--sp-accent-ink) beyaz yerine KOYU (#08131a, 8.11:1)
+  yapildi. Bu iki token birlikte degisir; birini degistirip otekini
+  birakmak butonlari okunmaz hale getirir.
+*/
+:root[data-theme="dark"] {
+  /* Yüzeyler — canvas en koyu, kartlar bir kademe açık (ışık yukarıdan). */
+  --sp-canvas: #12181e;
+  --sp-surface: #1b232b;
+  --sp-surface-alt: #222c35;
+  --sp-surface-hover: #26333f;
+
+  /* Çizgiler */
+  --sp-line: #2c3843;
+  --sp-line-strong: #3c4a57;
+
+  /* Metin */
+  --sp-ink: #e8eef4;        /* 13.6:1 kart üzerinde */
+  --sp-ink-muted: #a3b4c4;  /*  7.5:1 — ikincil metin */
+  --sp-ink-faint: #6b7c8c;  /*  3.7:1 — SADECE dekoratif, metin için kullanma */
+
+  /* Sol menü — canvas'tan DAHA koyu kalır ki koyu temada da ayrı bir
+     yüzey gibi okunsun; aksi halde gövdeyle birleşip kaybolur. */
+  --sp-nav: #0f151a;
+  --sp-nav-deep: #0a0f13;
+  --sp-nav-hover: #1e2933;
+  --sp-nav-active: #27343f;
+  --sp-nav-ink: #e4edf5;    /* 15.5:1 */
+  --sp-nav-ink-dim: #a9bccd;/*  9.4:1 — grup başlıkları 11px */
+  --sp-nav-line: #232f39;
+
+  /* Aksiyon — bkz. yukarıdaki "TEK YAPISAL FARK". */
+  --sp-accent: #3fb6e8;        /* 6.9:1 — metin, bağlantı ve dolgu */
+  --sp-accent-hover: #6ccbf0;  /* daha parlak: koyuda hover aydınlanır */
+  --sp-accent-bright: #28aade; /* dekoratif vurgu */
+  --sp-accent-soft: #16333f;
+  --sp-accent-soft-strong: #1b4354;
+  --sp-accent-ink: #08131a;    /* 8.1:1 — dolgunun ÜZERİNDEKİ metin */
+
+  /* Durum paleti — *-ink varyantları rozet metni (AA), ana değerler işaret. */
+  --sp-ok: #5cb531;
+  --sp-ok-ink: #7fd44f;     /* 7.8:1 soft üzerinde */
+  --sp-ok-soft: #16301a;
+  --sp-warn: #d98324;
+  --sp-warn-ink: #f0a94e;   /* 7.3:1 */
+  --sp-warn-soft: #34260f;
+  --sp-err: #e0475f;
+  --sp-err-ink: #ff8b9c;    /* 7.2:1 */
+  --sp-err-soft: #3a1620;
+
+  /* Gölgeler — koyu zeminde açık temanın yumuşak grisi görünmez; siyah
+     derinleştirilip yayılım kenarı belirginleştirildi. */
+  --sp-shadow-card: 0 2px 4px #00000066, 0 0 1px #ffffff1f;
+  --sp-shadow-pop: 0 8px 24px #00000080, 0 0 1px #ffffff26;
+  --sp-shadow-inset-input: inset 0 2px 1px #00000040;
+
+  /* Tarayıcının kendi çizdiği yüzeyler (kaydırma çubuğu, form kontrolleri,
+     otomatik doldurma) de koyu olsun; aksi halde beyaz scrollbar sırıtır. */
+  color-scheme: dark;
+}
+
+/* ---------- taban ---------- */
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--sp-canvas);
+  color: var(--sp-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+h1, h2, h3, h4, p, figure { margin: 0; }
+ul, ol { margin: 0; padding: 0; list-style: none; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+a { color: inherit; text-decoration: none; }
+
+:focus-visible {
+  outline: 2px solid var(--sp-accent);
+  outline-offset: 1px;
+}
+
+.sp-mono { font-family: var(--font-mono); }
+
+.sp-visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- kabuk ---------- */
+
+.sp-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sp-nav-w) minmax(0, 1fr);
+}
+
+/* ---------- sol menü ---------- */
+
+.sp-nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sp-nav);
+  color: var(--sp-nav-ink);
+}
+
+.sp-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: var(--sp-topbar-h);
+  padding: 0 14px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--sp-nav-line);
+  color: #fff;
+}
+
+.sp-nav-brand-mark {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  background: var(--sp-accent-bright);
+  border-radius: var(--sp-radius);
+}
+
+.sp-nav-brand-mark svg { width: 14px; height: 14px; }
+.sp-nav-brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+
+.sp-nav-scroll { flex: 1 1 auto; overflow-y: auto; padding: 6px 0 16px; }
+
+.sp-nav-group + .sp-nav-group { margin-top: 4px; }
+
+/* Plesk'in menüsünde grup başlığı kendi (daha koyu) şeridinde durur —
+   bg-sidebar-section token'ı. Menü uzadıkça hangi bölümde olduğun
+   kaybolmuyor. */
+.sp-nav-group-title {
+  padding: 7px 14px;
+  background: var(--sp-nav-deep);
+  color: var(--sp-nav-ink-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.sp-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+  padding: 0 14px;
+  color: var(--sp-nav-ink);
+  font-size: 13px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.sp-nav-item svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--sp-nav-ink-dim);
+  transition: color 0.12s ease;
+}
+
+.sp-nav-item:hover { background: var(--sp-nav-hover); color: #fff; }
+.sp-nav-item:hover svg { color: #fff; }
+
+.sp-nav-item[aria-current="page"] {
+  background: var(--sp-nav-active);
+  color: #fff;
+  font-weight: 500;
+}
+
+.sp-nav-item[aria-current="page"] svg { color: #fff; }
+
+.sp-nav-item[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  /* Koyu menüde parlak mavi: seçili satırı uzaktan bile ayırt ettiriyor.
+     Bu dekoratif bir işaret, tek başına anlam taşımıyor — satır ayrıca
+     aria-current ve daha açık bir zeminle de işaretli. */
+  background: var(--sp-accent-bright);
+}
+
+.sp-nav-count {
+  margin-left: auto;
+  color: var(--sp-nav-ink-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-nav-foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--sp-nav-line);
+  color: var(--sp-nav-ink-dim);
+  font-size: 11px;
+}
+
+/* ---------- üst bar ---------- */
+
+.sp-main { min-width: 0; display: flex; flex-direction: column; }
+
+.sp-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--sp-topbar-h);
+  padding: 0 16px;
+  background: var(--sp-surface);
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.sp-topbar-menu {
+  display: none;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+  background: var(--sp-surface);
+  color: var(--sp-ink-muted);
+}
+
+.sp-topbar-menu svg { width: 17px; height: 17px; }
+
+/* arama */
+
+.sp-search { position: relative; width: min(360px, 42vw); }
+
+.sp-search-box {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 8px;
+  background: var(--sp-surface-alt);
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.sp-search-box:focus-within {
+  background: var(--sp-surface);
+  border-color: var(--sp-accent);
+}
+
+.sp-search-box svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--sp-ink-faint); }
+
+.sp-search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 12px;
+}
+
+.sp-search-hint {
+  flex: 0 0 auto;
+  padding: 1px 4px;
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+  color: var(--sp-ink-muted);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.sp-search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius-lg);
+  box-shadow: var(--sp-shadow-pop);
+}
+
+.sp-search-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--sp-radius);
+  background: transparent;
+  text-align: left;
+  font-size: 12px;
+}
+
+.sp-search-result svg { width: 15px; height: 15px; flex: 0 0 auto; color: var(--sp-ink-faint); }
+.sp-search-result:hover,
+.sp-search-result[data-active="true"] { background: var(--sp-accent-soft); }
+.sp-search-result small { margin-left: auto; color: var(--sp-ink-muted); font-size: 11px; }
+.sp-search-empty { padding: 10px; color: var(--sp-ink-muted); font-size: 12px; }
+
+/* sağ taraf */
+
+.sp-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.sp-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+}
+
+.sp-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--sp-ink-faint);
+}
+
+.sp-dot[data-state="ok"] { background: var(--sp-ok); }
+.sp-dot[data-state="warn"] { background: var(--sp-warn); }
+.sp-dot[data-state="err"] { background: var(--sp-err); }
+
+/* Tema düğmesinin ilk render'daki yer tutucusu. Tema ancak istemcide
+   okunabildiği için ikon bir kare geç geliyor; yer tutucu ikonla aynı ölçüde
+   olmasa üst çubuk o anda yatay olarak zıplardı. */
+.sp-theme-toggle-placeholder { display: block; width: 15px; height: 15px; }
+
+.sp-user { display: flex; align-items: center; gap: 8px; }
+
+.sp-avatar {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--sp-radius);
+  background: var(--sp-accent-soft);
+  color: var(--sp-accent-hover);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sp-user-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+/* ---------- sayfa ---------- */
+
+.sp-content {
+  flex: 1;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 16px 20px 40px;
+}
+
+.sp-page-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.sp-page-title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+.sp-page-sub { margin-top: 2px; color: var(--sp-ink-muted); font-size: 12px; }
+.sp-page-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.sp-crumb {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+}
+
+.sp-crumb a:hover { color: var(--sp-accent); text-decoration: underline; }
+.sp-crumb svg { width: 12px; height: 12px; }
+
+.sp-stack { display: flex; flex-direction: column; gap: 14px; }
+.sp-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-split { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: start; }
+
+/* ---------- panel ---------- */
+
+/* Plesk'in kartı gibi: 1px kenarlık YOK, kenarı gölgenin ikinci katmanı
+   (0 0 1px) çiziyor. Kenarlık + gölge birlikte kullanıldığında kenar iki kez
+   çizilip ağırlaşıyordu. */
+.sp-panel {
+  background: var(--sp-surface);
+  border-radius: var(--sp-radius-lg);
+  box-shadow: var(--sp-shadow-card);
+}
+
+.sp-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.sp-panel-title { font-size: 13px; font-weight: 600; }
+.sp-panel-title svg { width: 15px; height: 15px; color: var(--sp-accent); vertical-align: -2px; margin-right: 6px; }
+.sp-panel-note { color: var(--sp-ink-muted); font-size: 12px; }
+.sp-panel-head-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+.sp-panel-body { padding: 14px; }
+.sp-panel-body--flush { padding: 0; }
+.sp-panel-foot {
+  padding: 10px 14px;
+  border-top: 1px solid var(--sp-line);
+  background: var(--sp-surface-alt);
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+}
+
+/* ---------- sekmeler ---------- */
+
+.sp-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--sp-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sp-tabs::-webkit-scrollbar { display: none; }
+
+.sp-tab {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-ink-muted);
+  font-size: 13px;
+  white-space: nowrap;
+  transition: color 0.12s ease;
+}
+
+.sp-tab svg { width: 15px; height: 15px; }
+.sp-tab:hover { color: var(--sp-ink); }
+
+.sp-tab[aria-selected="true"] { color: var(--sp-accent); font-weight: 600; }
+.sp-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 3px;
+  background: var(--sp-accent-bright);
+  border-radius: 2px 2px 0 0;
+}
+
+/* ---------- butonlar ---------- */
+
+.sp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--sp-radius);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.sp-btn svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.sp-btn:disabled { opacity: 0.55; }
+
+/* Plesk'in butonundaki alt iç çizgi (inset 0 -1px 0): butona basılabilir bir
+   yüzey hissi veriyor, düz dikdörtgenden ayırıyor. */
+.sp-btn--primary {
+  background: var(--sp-accent);
+  border-color: var(--sp-accent);
+  color: var(--sp-accent-ink);
+  box-shadow: inset 0 -1px 0 #00000026;
+}
+.sp-btn--primary:hover:not(:disabled) { background: var(--sp-accent-hover); border-color: var(--sp-accent-hover); }
+.sp-btn--primary:active:not(:disabled) { box-shadow: inset 0 1px 2px #00000033; }
+
+.sp-btn--secondary {
+  background: var(--sp-surface);
+  border-color: var(--sp-line-strong);
+  color: var(--sp-ink);
+  box-shadow: inset 0 -1px 0 #2222220f;
+}
+.sp-btn--secondary:hover:not(:disabled) { background: var(--sp-surface-hover); border-color: var(--sp-accent-bright); }
+.sp-btn--secondary:active:not(:disabled) { box-shadow: inset 0 1px 2px #2222221a; }
+
+.sp-btn--ghost { color: var(--sp-ink-muted); }
+.sp-btn--ghost:hover:not(:disabled) { background: var(--sp-surface-hover); color: var(--sp-accent); }
+
+.sp-btn--danger { background: var(--sp-surface); border-color: var(--sp-line-strong); color: var(--sp-err-ink); }
+.sp-btn--danger:hover:not(:disabled) { background: var(--sp-err); border-color: var(--sp-err); color: #fff; }
+
+.sp-btn--sm { height: 25px; padding: 0 8px; font-size: 12px; }
+.sp-btn--sm svg { width: 14px; height: 14px; }
+
+.sp-btn--icon { width: 25px; padding: 0; }
+
+.sp-btn--block { width: 100%; }
+
+.sp-link { color: var(--sp-accent); }
+.sp-link:hover { text-decoration: underline; }
+
+/* ---------- form ---------- */
+
+.sp-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sp-label { font-size: 12px; font-weight: 500; color: var(--sp-ink); }
+
+.sp-input,
+.sp-select,
+.sp-textarea {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-line-strong);
+  border-radius: var(--sp-radius);
+  /* Plesk'in input'undaki üst iç gölge: alanın "oyulmuş" olduğunu, yani
+     tıklanıp yazılabilir olduğunu gösteriyor. Düz kenarlıkta bu okunmuyordu. */
+  box-shadow: var(--sp-shadow-inset-input);
+  font-size: 13px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.sp-textarea { height: auto; padding: 7px 8px; resize: vertical; line-height: 1.5; }
+
+.sp-select {
+  appearance: none;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23737373' stroke-width='1.6'%3E%3Cpath d='M4 6.5 8 10.5 12 6.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+}
+
+.sp-input:focus,
+.sp-select:focus,
+.sp-textarea:focus {
+  outline: 0;
+  border-color: var(--sp-accent-bright);
+  /* Plesk'in odak halkası: 4px yumuşak mavi. İç gölge korunuyor, halka
+     dışarıda büyüyor — böylece odaklanan alan gerçekten öne çıkıyor. */
+  box-shadow: var(--sp-shadow-inset-input), 0 0 0 4px color-mix(in srgb, var(--sp-accent-bright) 40%, transparent);
+}
+
+.sp-input:disabled,
+.sp-select:disabled,
+.sp-textarea:disabled { background: var(--sp-surface-alt); color: var(--sp-ink-muted); }
+
+/* Alanın sağına sabit bir ek: e-posta formunda "@alanadi.com".
+   Kullanıcının ne yazdığını değil, yazdığının NEYE dönüşeceğini gösterir —
+   adresin tamamı gözle görünmeden "info" yazmak soyut kalıyordu. */
+.sp-input-affix {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+.sp-input-affix > .sp-input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.sp-input-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--sp-surface-alt);
+  border: 1px solid var(--sp-line-strong);
+  border-left: 0;
+  border-radius: 0 var(--sp-radius) var(--sp-radius) 0;
+  color: var(--sp-ink-muted);
+  font-size: 13px;
+}
+
+.sp-hint { color: var(--sp-ink-muted); font-size: 12px; }
+.sp-field-error { color: var(--sp-err-ink); font-size: 12px; }
+
+.sp-radio-group { display: flex; flex-direction: column; gap: 6px; }
+.sp-radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--sp-line-strong);
+  border-radius: var(--sp-radius);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.sp-radio-option:has(input:checked) {
+  border-color: var(--sp-accent-bright);
+  background: color-mix(in srgb, var(--sp-accent-bright) 8%, transparent);
+}
+.sp-radio-option input[type="radio"] { margin-top: 3px; flex-shrink: 0; }
+
+/* ---------- rozet ---------- */
+
+.sp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--sp-radius);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.sp-badge svg { width: 12px; height: 12px; }
+.sp-badge--neutral { background: var(--sp-surface-alt); border-color: var(--sp-line); color: var(--sp-ink-muted); }
+/* Rozet METNİ her zaman *-ink varyantı: yumuşak zeminde AA'yı geçen tek
+   değer o. Kenarlık ve dolgu ana değerden gelir. */
+.sp-badge--ok { background: var(--sp-ok-soft); border-color: color-mix(in srgb, var(--sp-ok) 35%, transparent); color: var(--sp-ok-ink); }
+.sp-badge--warn { background: var(--sp-warn-soft); border-color: color-mix(in srgb, var(--sp-warn) 55%, transparent); color: var(--sp-warn-ink); }
+.sp-badge--err { background: var(--sp-err-soft); border-color: color-mix(in srgb, var(--sp-err) 35%, transparent); color: var(--sp-err-ink); }
+.sp-badge--info { background: var(--sp-accent-soft); border-color: color-mix(in srgb, var(--sp-accent-bright) 45%, transparent); color: var(--sp-accent); }
+
+/* ---------- tablo ---------- */
+
+.sp-table-wrap { overflow-x: auto; }
+
+.sp-table { width: 100%; border-collapse: collapse; }
+
+.sp-table th {
+  padding: 7px 14px;
+  background: var(--sp-surface-alt);
+  border-bottom: 1px solid var(--sp-line);
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sp-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--sp-line);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.sp-table tbody tr:last-child td { border-bottom: 0; }
+.sp-table tbody tr:hover { background: var(--sp-surface-alt); }
+.sp-table td.sp-num { text-align: right; font-variant-numeric: tabular-nums; }
+.sp-table .sp-cell-actions { width: 1%; white-space: nowrap; text-align: right; }
+
+/* ---------- domain kartı ve araç kutucukları ---------- */
+
+.sp-domain-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.sp-domain-name { font-size: 15px; font-weight: 600; }
+.sp-domain-name:hover { color: var(--sp-accent); text-decoration: underline; }
+.sp-domain-meta { margin-top: 2px; color: var(--sp-ink-muted); font-size: 12px; }
+.sp-domain-head-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+.sp-tool-section { padding: 10px 14px; }
+.sp-tool-section + .sp-tool-section { border-top: 1px solid var(--sp-line); }
+
+.sp-tool-section-title {
+  margin-bottom: 7px;
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sp-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+}
+
+.sp-tile {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 9px;
+  border: 1px solid transparent;
+  border-radius: var(--sp-radius);
+  background: transparent;
+  text-align: left;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.sp-tile:hover:not(:disabled) { background: var(--sp-accent-soft); border-color: color-mix(in srgb, var(--sp-accent) 25%, transparent); }
+.sp-tile:disabled { opacity: 0.55; }
+
+.sp-tile-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: var(--sp-radius);
+  background: var(--sp-surface-alt);
+  color: var(--sp-accent);
+}
+
+.sp-tile-icon svg { width: 16px; height: 16px; }
+.sp-tile-text { min-width: 0; }
+.sp-tile-name { display: block; font-size: 13px; font-weight: 500; }
+.sp-tile-note {
+  display: block;
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- ölçü çubuğu ---------- */
+
+.sp-meter-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.sp-meter-label { font-size: 12px; font-weight: 500; }
+.sp-meter-value { margin-left: auto; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--sp-ink-muted); }
+
+.sp-meter-track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--sp-surface-alt);
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+}
+
+.sp-meter-fill {
+  height: 100%;
+  background: var(--sp-accent);
+  transition: width 0.3s ease;
+}
+
+.sp-meter-fill[data-state="warn"] { background: var(--sp-warn); }
+.sp-meter-fill[data-state="err"] { background: var(--sp-err); }
+
+/* ---------- domain disk kullanımı ---------- */
+
+.sp-domain-disk { white-space: nowrap; }
+
+.sp-disk-summary { padding: 12px 14px 14px; }
+
+.sp-disk-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sp-disk-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sp-disk-summary-title svg { width: 15px; height: 15px; color: var(--sp-ink-muted); }
+
+.sp-disk-summary-total {
+  margin-left: auto;
+  color: var(--sp-ink-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-disk-list { display: flex; flex-direction: column; gap: 6px; }
+
+.sp-disk-row {
+  display: grid;
+  /* Ad ve değer sabit sütunda: satırlar arasında çubuklar hizalı başlar,
+     farklı uzunluktaki domain adları çubuğu kaydırmaz. */
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.sp-disk-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-disk-row-track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--sp-surface-alt);
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+}
+
+.sp-disk-row-fill { display: block; height: 100%; background: var(--sp-accent); }
+
+.sp-disk-row-value {
+  color: var(--sp-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 620px) {
+  /* Dar ekranda çubuk anlamsızlaşacak kadar kısalıyor; ad ve sayı kalır. */
+  .sp-disk-summary-head { flex-wrap: wrap; }
+  .sp-disk-summary-total { margin-left: 0; width: 100%; order: 3; }
+  .sp-disk-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .sp-disk-row-track { display: none; }
+}
+
+/* ---------- yükleme ilerlemesi ---------- */
+
+/* Dosya yöneticisinin başlığı ile listesi ARASINA girer: yükleme sürerken
+   kullanıcının gözü zaten oradadır ve şerit listeyi itmez, üstüne biner
+   gibi durmaz. */
+.sp-upload-progress {
+  padding: 9px 14px 11px;
+  background: var(--sp-surface-alt);
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.sp-upload-progress-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+}
+
+.sp-upload-progress-title { font-size: 12px; font-weight: 500; }
+
+/* tabular-nums: rakamlar eşit genişlikte olsun ki yüzde ve hız her
+   güncellemede yatay olarak zıplamasın — saniyede birkaç kez değişiyor. */
+.sp-upload-progress-stats {
+  margin-left: auto;
+  color: var(--sp-ink-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sp-upload-progress-track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+}
+
+.sp-upload-progress-fill {
+  height: 100%;
+  background: var(--sp-accent);
+  /* İlerleme geriye gitmez; yalnızca ileri doğru yumuşatılır. */
+  transition: width 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-upload-progress-fill { transition: none; }
+}
+
+@media (max-width: 620px) {
+  /* Dar ekranda hız/kalan süre satırı başlığın altına iner; yan yana
+     sıkışınca ikisi de okunmuyordu. */
+  .sp-upload-progress-top { flex-wrap: wrap; }
+  .sp-upload-progress-stats { margin-left: 0; width: 100%; order: 3; }
+}
+
+/* ---------- metrik ve grafik ---------- */
+
+.sp-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.sp-metric { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
+.sp-metric-label { color: var(--sp-ink-muted); font-size: 12px; font-weight: 600; }
+
+.sp-metric-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.sp-metric-unit { font-size: 13px; font-weight: 500; color: var(--sp-ink-muted); }
+.sp-metric-sub { color: var(--sp-ink-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+.sp-chart { position: relative; width: 100%; }
+.sp-chart svg { display: block; width: 100%; height: auto; }
+.sp-chart-grid { stroke: var(--sp-line); stroke-width: 1; }
+/* Dolgu daha görünür ve daha canlı bir maviye çekildi (blue-600). Çizgi
+   metin-güvenli koyu maviyle kalıyor: seri çizgisi grafiğin okunan kısmı,
+   dolgu yalnızca hacmi gösteren dekor. */
+.sp-chart-area { fill: var(--sp-accent-bright); opacity: 0.16; }
+.sp-chart-line { fill: none; stroke: var(--sp-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.sp-chart-crosshair { stroke: var(--sp-accent-bright); stroke-width: 1; }
+.sp-chart-marker { fill: var(--sp-accent); stroke: var(--sp-surface); stroke-width: 2; }
+.sp-chart-axis { fill: var(--sp-ink-muted); font-size: 10px; font-family: var(--font-mono); }
+
+/* Grafik ipucu — imleç veriye gelince çıkan kutu.
+   Metin `#fff` DEĞİL `--sp-surface`: ikisi de --sp-ink ile birlikte tema
+   değiştirir, yani kutu her iki temada da zıt kalır. Sabit beyaz metin
+   koyu temada okunmaz hale geliyordu: orada --sp-ink beyaza yakın
+   (#e8eef4) ve beyaz üstüne beyaz 1,17:1 kontrast veriyordu — kullanıcı
+   "panel özetinde detaya bakmak için üzerine gelince görünmüyor" diye
+   bildirdi. Şimdi açık temada 12,3:1, koyu temada 13,6:1. */
+.sp-chart-tooltip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -100%);
+  padding: 4px 7px;
+  background: var(--sp-ink);
+  border-radius: var(--sp-radius);
+  color: var(--sp-surface);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.sp-chart-empty {
+  display: grid;
+  place-items: center;
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.sp-range { display: inline-flex; border: 1px solid var(--sp-line-strong); border-radius: var(--sp-radius); overflow: hidden; }
+
+.sp-range button {
+  padding: 3px 9px;
+  border: 0;
+  background: var(--sp-surface);
+  color: var(--sp-ink-muted);
+  font-size: 12px;
+}
+
+.sp-range button + button { border-left: 1px solid var(--sp-line); }
+.sp-range button:hover { background: var(--sp-surface-hover); }
+.sp-range button[aria-pressed="true"] { background: var(--sp-accent); color: var(--sp-accent-ink); font-weight: 500; }
+
+/* ---------- boş durum ---------- */
+
+.sp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 34px 20px;
+  text-align: center;
+}
+
+.sp-empty svg { width: 22px; height: 22px; color: var(--sp-ink-faint); }
+.sp-empty-title { font-size: 13px; font-weight: 600; }
+.sp-empty-text { max-width: 380px; color: var(--sp-ink-muted); font-size: 12px; }
+
+/* ---------- yükleniyor ---------- */
+
+.sp-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: sp-spin 0.6s linear infinite;
+}
+
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+
+/* Oturum doğrulanana kadar gösterilen açılış ekranı. Panelin içeriği bu
+   aşamada ÇİZİLMEZ — boş bir panelin flaşı "sanki ilk kurulmuş" izlenimi
+   veriyordu. Bkz. AppShell.tsx ve middleware.ts. */
+.sp-boot {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--sp-canvas);
+  color: var(--sp-ink-muted);
+  font-size: 13px;
+}
+
+.sp-boot-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: sp-spin 0.6s linear infinite;
+}
+
+/* ---------- modal ---------- */
+
+.sp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(37, 55, 66, 0.42);
+}
+
+.sp-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  background: var(--sp-surface);
+  border-radius: var(--sp-radius-lg);
+  box-shadow: var(--sp-shadow-pop);
+}
+
+.sp-modal--wide { width: min(880px, 100%); }
+
+.sp-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.sp-modal-title { font-size: 14px; font-weight: 600; }
+.sp-modal-body { flex: 1; overflow-y: auto; padding: 14px; }
+
+.sp-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--sp-line);
+  background: var(--sp-surface-alt);
+}
+
+/* ---------- bildirim ---------- */
+
+.sp-toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+}
+
+.sp-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 11px;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-line);
+  border-left: 3px solid var(--sp-ink-faint);
+  border-radius: var(--sp-radius);
+  box-shadow: var(--sp-shadow-pop);
+  font-size: 12px;
+}
+
+.sp-toast svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 1px; }
+.sp-toast[data-tone="ok"] { border-left-color: var(--sp-ok); }
+.sp-toast[data-tone="ok"] svg { color: var(--sp-ok-ink); }
+.sp-toast[data-tone="err"] { border-left-color: var(--sp-err); }
+.sp-toast[data-tone="err"] svg { color: var(--sp-err-ink); }
+.sp-toast[data-tone="info"] { border-left-color: var(--sp-accent); }
+.sp-toast[data-tone="info"] svg { color: var(--sp-accent); }
+.sp-toast-body { min-width: 0; flex: 1; }
+.sp-toast-title { font-weight: 600; }
+.sp-toast-text { margin-top: 2px; color: var(--sp-ink-muted); overflow-wrap: anywhere; }
+
+.sp-toast-close {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--sp-ink-muted);
+}
+
+.sp-toast-close svg { width: 13px; height: 13px; margin: 0; }
+
+/* ---------- kod / config önizleme ---------- */
+
+.sp-code {
+  margin: 0;
+  padding: 11px 12px;
+  overflow-x: auto;
+  background: var(--sp-surface-alt);
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+.sp-note {
+  padding: 9px 11px;
+  border-left: 3px solid var(--sp-accent);
+  background: var(--sp-accent-soft);
+  border-radius: 0 var(--sp-radius) var(--sp-radius) 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sp-note--warn { border-left-color: var(--sp-warn); background: var(--sp-warn-soft); }
+.sp-note--ok { border-left-color: var(--sp-ok); background: var(--sp-ok-soft); }
+.sp-note--err { border-left-color: var(--sp-err); background: var(--sp-err-soft); }
+
+/* ---------- giriş ekranı ---------- */
+
+.sp-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--sp-nav);
+}
+
+.sp-auth-card {
+  width: min(360px, 100%);
+  background: var(--sp-surface);
+  border-radius: var(--sp-radius-lg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+}
+
+.sp-auth-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 16px;
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.sp-auth-body { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.sp-auth-title { font-size: 15px; font-weight: 600; }
+.sp-auth-foot { padding: 11px 16px; border-top: 1px solid var(--sp-line); color: var(--sp-ink-muted); font-size: 12px; text-align: center; }
+
+/* ---------- mobil çekmece ---------- */
+
+.sp-drawer-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(37, 55, 66, 0.42); }
+
+.sp-drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 51;
+  width: min(260px, 80vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--sp-nav);
+  color: var(--sp-nav-ink);
+}
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 900px) {
+  .sp-shell { grid-template-columns: minmax(0, 1fr); }
+  .sp-shell > .sp-nav { display: none; }
+  .sp-topbar-menu { display: grid; }
+  .sp-search { width: auto; flex: 1; }
+  .sp-health { display: none; }
+  .sp-user-name { display: none; }
+  .sp-content { padding: 14px 12px 32px; }
+  .sp-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 620px) {
+  .sp-search-hint { display: none; }
+  .sp-page-actions { margin-left: 0; width: 100%; }
+  .sp-tile-grid { grid-template-columns: minmax(0, 1fr); }
+  .sp-modal-foot { flex-direction: column-reverse; }
+  .sp-modal-foot .sp-btn { width: 100%; }
+  .sp-toasts { right: 8px; left: 8px; bottom: 8px; width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .sp-nav, .sp-topbar, .sp-toasts, .sp-page-actions { display: none !important; }
+  .sp-shell { grid-template-columns: 1fr; }
+  .sp-panel { box-shadow: none; }
+}
+
+/* ==========================================================================
+   WEBMAIL
+   ==========================================================================
+   Panelin token katmanını (--sp-*) OLDUĞU GİBİ kullanır; yeni palet
+   tanımlamaz. Koyu tema bu yüzden bedava gelir: tek bir renk burada sabit
+   yazılmadığı için `[data-theme="dark"]` blokindaki değerler doğrudan geçerli.
+
+   Düzen üç bölmeli (klasör / liste / okuma) — mail kullanıcısının yıllardır
+   bildiği yapı. Buradaki tasarım riski görünüşte değil YOĞUNLUKTA: satırlar
+   Plesk yoğunluğunda, önizleme metni YOK. Önizleme satır başına iki kat yer
+   yiyor ve tarama hızını düşürüyor; gönderen + konu + tarih, gözün aradığı üç
+   şey. Okunmamış mesaj renkle değil AĞIRLIKLA ayrılıyor (renk tek başına
+   bilgi taşımaz kuralı).
+   ========================================================================== */
+
+.wm-boot { min-height: 100vh; background: var(--sp-canvas); }
+
+/* ---------- giriş ekranı ---------- */
+
+.wm-auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--sp-canvas);
+}
+
+.wm-auth-toolbar { position: fixed; top: 12px; right: 12px; }
+
+.wm-auth-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  background: var(--sp-surface);
+  border-radius: var(--sp-radius-lg);
+  box-shadow: var(--sp-shadow-card);
+}
+
+.wm-auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.wm-auth-brand svg { width: 30px; height: 30px; color: var(--sp-accent); flex: 0 0 auto; }
+.wm-auth-brand h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; }
+.wm-auth-brand p { color: var(--sp-ink-muted); font-size: 12px; margin-top: 1px; }
+
+.wm-field { display: flex; flex-direction: column; gap: 5px; }
+.wm-field > span { font-size: 12px; font-weight: 500; }
+
+.wm-auth-error {
+  padding: 8px 10px;
+  background: var(--sp-err-soft);
+  border-left: 2px solid var(--sp-err);
+  border-radius: var(--sp-radius);
+  color: var(--sp-err-ink);
+  font-size: 12px;
+}
+
+.wm-auth-note { color: var(--sp-ink-muted); font-size: 11px; line-height: 1.5; }
+
+/* ---------- kabuk ---------- */
+
+.wm-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 232px minmax(300px, 380px) minmax(0, 1fr);
+  background: var(--sp-canvas);
+  overflow: hidden;
+}
+
+/* ---------- sol: klasörler ---------- */
+
+.wm-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--sp-nav);
+  color: var(--sp-nav-ink);
+  overflow-y: auto;
+}
+
+.wm-side-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+.wm-side-brand svg { width: 18px; height: 18px; color: var(--sp-accent-bright); }
+.wm-side-loading { color: var(--sp-nav-ink-dim); font-size: 12px; padding: 6px 2px; }
+
+.wm-folders { display: flex; flex-direction: column; gap: 1px; }
+
+.wm-folder {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: var(--sp-radius);
+  background: transparent;
+  color: var(--sp-nav-ink-dim);
+  font-size: 13px;
+  text-align: left;
+}
+.wm-folder svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.wm-folder:hover { background: var(--sp-nav-hover); color: #fff; }
+.wm-folder[data-active="true"] { background: var(--sp-nav-active); color: #fff; font-weight: 600; }
+.wm-folder-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.wm-folder-count {
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: var(--sp-accent-bright);
+  color: #06212c;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kota — bu webmail'in imzası. Her zaman görünür, asla uydurulmaz. */
+.wm-quota {
+  margin-top: auto;
+  padding: 9px 10px;
+  border: 1px solid var(--sp-nav-line);
+  border-radius: var(--sp-radius);
+  background: var(--sp-nav-deep);
+}
+.wm-quota-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--sp-nav-ink-dim);
+}
+.wm-quota-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: var(--sp-radius);
+  background: #ffffff1f;
+}
+.wm-quota-fill { height: 100%; background: var(--sp-ok); transition: width 0.3s ease; }
+.wm-quota[data-state="warn"] .wm-quota-fill { background: var(--sp-warn); }
+.wm-quota[data-state="err"] .wm-quota-fill { background: var(--sp-err); }
+.wm-quota-warn { margin-top: 6px; font-size: 11px; line-height: 1.45; color: #ffc9d1; }
+
+.wm-side-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sp-nav-line);
+}
+.wm-account {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--sp-nav-ink-dim);
+}
+.wm-side-foot .sp-btn { color: var(--sp-nav-ink-dim); }
+.wm-side-foot .sp-btn:hover { background: var(--sp-nav-hover); color: #fff; }
+
+/* ---------- orta: liste ---------- */
+
+.wm-list-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--sp-surface);
+  border-right: 1px solid var(--sp-line);
+}
+
+.wm-list-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.wm-search {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  height: 30px;
+  border: 1px solid var(--sp-line-strong);
+  border-radius: var(--sp-radius);
+  background: var(--sp-surface-alt);
+}
+.wm-search svg { width: 14px; height: 14px; color: var(--sp-ink-muted); flex: 0 0 auto; }
+.wm-search input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-size: 12px; }
+.wm-search:focus-within { border-color: var(--sp-accent); }
+
+.wm-linkish {
+  border: 0;
+  background: transparent;
+  color: var(--sp-accent);
+  font-size: 11px;
+  text-decoration: underline;
+  padding: 0 2px;
+}
+
+.wm-error {
+  padding: 8px 12px;
+  background: var(--sp-err-soft);
+  color: var(--sp-err-ink);
+  font-size: 12px;
+  border-bottom: 1px solid var(--sp-line);
+}
+
+.wm-list { flex: 1; overflow-y: auto; }
+
+.wm-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--sp-ink-muted);
+  font-size: 13px;
+  text-align: center;
+}
+.wm-list-empty svg { width: 34px; height: 34px; color: var(--sp-ink-faint); }
+
+.wm-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--sp-line);
+}
+.wm-row:hover { background: var(--sp-surface-hover); }
+.wm-row[data-selected="true"] { background: var(--sp-accent-soft); }
+
+.wm-row-star {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  border: 0;
+  background: transparent;
+  color: var(--sp-ink-faint);
+  flex: 0 0 auto;
+}
+.wm-row-star svg { width: 15px; height: 15px; }
+.wm-row-star:hover { color: var(--sp-warn); }
+.wm-row[data-selected="true"] .wm-row-star { color: var(--sp-warn-ink); }
+
+.wm-row-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "from meta" "subject meta";
+  gap: 1px 10px;
+  padding: 8px 12px 9px 2px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.wm-row-from {
+  grid-area: from;
+  font-size: 12px;
+  color: var(--sp-ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-row-subject {
+  grid-area: subject;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-row-meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  align-self: center;
+  color: var(--sp-ink-muted);
+}
+.wm-row-meta svg { width: 13px; height: 13px; }
+.wm-row-date { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Okunmamış: RENKLE DEĞİL ağırlıkla. Renk tek başına bilgi taşımaz — ayrıca
+   koyu/açık temada aynı şekilde okunur. */
+.wm-row[data-unread="true"] .wm-row-from,
+.wm-row[data-unread="true"] .wm-row-subject { font-weight: 700; color: var(--sp-ink); }
+.wm-row[data-unread="true"] { box-shadow: inset 2px 0 0 var(--sp-accent); }
+
+.wm-list-total { padding: 10px 12px; color: var(--sp-ink-muted); font-size: 11px; text-align: center; }
+
+/* ---------- sağ: okuma ---------- */
+
+.wm-read-pane { min-width: 0; overflow-y: auto; background: var(--sp-canvas); }
+.wm-read-empty { height: 100%; }
+
+.wm-message { display: flex; flex-direction: column; }
+
+.wm-message-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 18px 10px;
+  background: var(--sp-surface);
+  border-bottom: 1px solid var(--sp-line);
+}
+.wm-message-subject {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+.wm-message-actions { display: flex; flex-wrap: wrap; gap: 4px; flex: 0 0 auto; }
+
+.wm-back { display: none; border: 0; background: transparent; color: var(--sp-ink-muted); padding: 2px; }
+.wm-back svg { width: 18px; height: 18px; }
+
+.wm-message-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 18px 12px;
+  background: var(--sp-surface);
+  border-bottom: 1px solid var(--sp-line);
+  font-size: 12px;
+}
+.wm-dim { color: var(--sp-ink-muted); }
+
+.wm-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 18px;
+  background: var(--sp-surface-alt);
+  border-bottom: 1px solid var(--sp-line);
+}
+.wm-attachments a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid var(--sp-line-strong);
+  border-radius: var(--sp-radius);
+  background: var(--sp-surface);
+  font-size: 12px;
+}
+.wm-attachments a:hover { border-color: var(--sp-accent); color: var(--sp-accent); }
+.wm-attachments svg { width: 13px; height: 13px; }
+.wm-attach-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-attach-size { color: var(--sp-ink-muted); font-size: 11px; }
+
+.wm-body { padding: 0; }
+.wm-body-frame { display: block; width: 100%; border: 0; background: #fff; }
+.wm-body-text {
+  margin: 0;
+  padding: 16px 18px;
+  /* Okuma konforu: panelin 13px yoğun arayüzünden farklı olarak gövde
+     düzyazıdır — daha büyük satır aralığı ve sınırlı ölçü. */
+  font: 14px/1.65 var(--font-sans);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 68ch;
+}
+
+.wm-remote-notice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 18px;
+  background: var(--sp-warn-soft);
+  border-bottom: 1px solid var(--sp-line);
+  color: var(--sp-warn-ink);
+  font-size: 12px;
+}
+.wm-remote-notice svg { width: 15px; height: 15px; flex: 0 0 auto; }
+.wm-remote-notice span { flex: 1; }
+
+/* ---------- yazma penceresi ---------- */
+
+.wm-composer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 21, 26, 0.55);
+}
+
+.wm-composer {
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sp-surface);
+  border-radius: var(--sp-radius-lg);
+  box-shadow: var(--sp-shadow-pop);
+  overflow: hidden;
+}
+
+.wm-composer-head {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px 10px 16px;
+  border-bottom: 1px solid var(--sp-line);
+}
+.wm-composer-head h2 { flex: 1; font-size: 14px; font-weight: 600; }
+
+.wm-composer-fields { padding: 10px 16px 0; display: flex; flex-direction: column; gap: 7px; }
+.wm-composer-row { display: flex; align-items: center; gap: 9px; }
+.wm-composer-row > span { width: 44px; flex: 0 0 auto; font-size: 12px; color: var(--sp-ink-muted); }
+.wm-composer-row .sp-input { flex: 1; min-width: 0; }
+
+.wm-composer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 9px 16px;
+  margin-top: 10px;
+  border-top: 1px solid var(--sp-line);
+  border-bottom: 1px solid var(--sp-line);
+  background: var(--sp-surface-alt);
+}
+.wm-composer-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  border: 0;
+  border-radius: var(--sp-radius);
+  background: transparent;
+  color: var(--sp-ink-muted);
+}
+.wm-composer-toolbar button:hover { background: var(--sp-surface-hover); color: var(--sp-ink); }
+.wm-composer-toolbar svg { width: 15px; height: 15px; }
+.wm-toolbar-sep { width: 1px; height: 18px; margin: 0 5px; background: var(--sp-line-strong); }
+
+.wm-editor {
+  flex: 1;
+  min-height: 200px;
+  overflow-y: auto;
+  padding: 14px 16px;
+  font: 14px/1.6 var(--font-sans);
+  outline: none;
+}
+.wm-editor:focus-visible { box-shadow: inset 0 0 0 2px var(--sp-accent); }
+.wm-editor blockquote { margin: 0 0 0 12px; padding-left: 12px; border-left: 2px solid var(--sp-line-strong); color: var(--sp-ink-muted); }
+
+.wm-attach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--sp-line);
+  background: var(--sp-surface-alt);
+}
+.wm-attach-list li { display: flex; align-items: center; gap: 7px; font-size: 12px; }
+.wm-attach-list svg { width: 13px; height: 13px; color: var(--sp-ink-muted); }
+.wm-attach-list li > button { border: 0; background: transparent; color: var(--sp-ink-muted); padding: 2px; }
+.wm-attach-list li > button:hover { color: var(--sp-err-ink); }
+.wm-attach-list .wm-attach-name { flex: 1; }
+.wm-attach-total { color: var(--sp-ink-muted); font-size: 11px; padding-top: 2px; }
+
+.wm-composer-error {
+  padding: 8px 16px;
+  background: var(--sp-err-soft);
+  color: var(--sp-err-ink);
+  font-size: 12px;
+}
+.wm-composer-notice {
+  padding: 8px 16px;
+  background: var(--sp-ok-soft);
+  color: var(--sp-ok-ink);
+  font-size: 12px;
+}
+
+.wm-composer-foot {
+  display: flex;
+  gap: 7px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--sp-line);
+  background: var(--sp-surface-alt);
+}
+
+/* ---------- dar ekran ----------
+   Üç bölme dar ekranda yan yana sığmaz. Klasörler üstte yatay şeride iner,
+   liste ve okuma bölmesi ise BİRBİRİNİN YERİNE geçer (data-pane). Üçünü de
+   sıkıştırmak hepsini kullanılamaz yapardı. */
+@media (max-width: 1000px) {
+  .wm-shell { grid-template-columns: 200px minmax(0, 1fr); }
+  .wm-read-pane { display: none; }
+  .wm-shell[data-pane="message"] .wm-list-pane { display: none; }
+  .wm-shell[data-pane="message"] .wm-read-pane { display: block; }
+  .wm-back { display: block; }
+}
+
+@media (max-width: 700px) {
+  .wm-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .wm-side { flex-direction: row; align-items: center; gap: 8px; overflow-x: auto; padding: 8px 10px; }
+  .wm-side-brand { display: none; }
+  .wm-folders { flex-direction: row; gap: 2px; }
+  .wm-folder { white-space: nowrap; }
+  .wm-quota { margin: 0; flex: 0 0 150px; }
+  .wm-quota-warn { display: none; }
+  .wm-side-foot { border: 0; padding: 0; }
+  .wm-account { display: none; }
+  .wm-message-actions .sp-btn span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wm-quota-fill { transition: none; }
+}
+
+/* ---------- yedek doğrulama ----------
+   Doğrulama durumu bu panelin en önemli tek işareti: bir yedek "var" olduğu
+   için değil, GERİ YÜKLENEBİLDİĞİ KANITLANDIĞI için güven verir. Bu yüzden
+   üç durum birbirinden net ayrılıyor ve renk TEK BAŞINA anlam taşımıyor —
+   her rozetin yanında metin var. */
+
+.sp-verify {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: var(--sp-radius);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sp-verify svg { width: 12px; height: 12px; }
+.sp-verify[data-state="ok"] { background: var(--sp-ok-soft); color: var(--sp-ok-ink); }
+.sp-verify[data-state="err"] { background: var(--sp-err-soft); color: var(--sp-err-ink); }
+/* Doğrulanmamış YEŞİL DEĞİL ama kırmızı da değil: bilinmiyor, denenmedi. */
+.sp-verify[data-state="unknown"] {
+  background: var(--sp-surface-alt);
+  color: var(--sp-ink-muted);
+  border: 1px solid var(--sp-line-strong);
+  font-weight: 500;
+}
+
+.sp-backup-content { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12px; }
+.sp-backup-db {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--sp-line-strong);
+  border-radius: var(--sp-radius);
+  color: var(--sp-ink-muted);
+  font-size: 11px;
+}
+.sp-backup-db svg { width: 11px; height: 11px; }
+
+.sp-row-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+
+.sp-kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 12px; }
+.sp-kv dt { color: var(--sp-ink-muted); white-space: nowrap; }
+.sp-kv dd { margin: 0; min-width: 0; word-break: break-word; }
+
+.sp-check { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.5; }
+.sp-check input { margin-top: 2px; flex: 0 0 auto; }
+
+/* ---------- posta kutusu listesi (Plesk Mail düzeni) ----------
+   Tablo yerine satır listesi: Plesk'in Mail sekmesindeki gibi her posta
+   kutusu kendi bloğu ve asıl bilgi DOLULUK. Tabloda doluluk çubuğu bir
+   hücreye sıkışıyor ve okunmuyordu; burada adresin altında tam genişlikte.
+
+   Renk tek başına anlam taşımaz — çubuğun yanında her zaman sayı var. */
+
+.sp-mailbox-list { display: flex; flex-direction: column; }
+
+.sp-mailbox {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--sp-line);
+}
+.sp-mailbox:last-child { border-bottom: 0; }
+.sp-mailbox:hover { background: var(--sp-surface-hover); }
+/* Kapalı hesap soluk ama OKUNUR kalır: yönetilebilmesi gerekiyor. */
+.sp-mailbox[data-disabled="true"] .sp-mailbox-address { color: var(--sp-ink-muted); }
+
+.sp-mailbox-avatar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--sp-radius);
+  background: var(--sp-accent-soft);
+  color: var(--sp-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.sp-mailbox-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.sp-mailbox-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sp-mailbox-address {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-mailbox-usage { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+.sp-mailbox-bar {
+  flex: 0 1 180px;
+  height: 5px;
+  overflow: hidden;
+  border-radius: var(--sp-radius);
+  background: var(--sp-surface-alt);
+  border: 1px solid var(--sp-line);
+}
+.sp-mailbox-fill { display: block; height: 100%; background: var(--sp-ok); transition: width 0.3s ease; }
+.sp-mailbox-usage[data-state="warn"] .sp-mailbox-fill { background: var(--sp-warn); }
+.sp-mailbox-usage[data-state="err"] .sp-mailbox-fill { background: var(--sp-err); }
+
+.sp-mailbox-numbers {
+  font-size: 11px;
+  color: var(--sp-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sp-mailbox-usage[data-state="err"] .sp-mailbox-numbers { color: var(--sp-err-ink); font-weight: 600; }
+
+.sp-mailbox-created { margin-left: auto; font-size: 11px; color: var(--sp-ink-faint); white-space: nowrap; }
+
+.sp-mailbox-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 3px; }
+
+@media (max-width: 900px) {
+  /* Dar ekranda işlemler alta iner; adres ve doluluk okunur kalır. */
+  .sp-mailbox { flex-wrap: wrap; }
+  .sp-mailbox-main { flex: 1 1 100%; order: 2; }
+  .sp-mailbox-actions { order: 3; margin-left: 41px; }
+  .sp-mailbox-created { display: none; }
+  .sp-mailbox-bar { flex: 1 1 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-mailbox-fill { transition: none; }
+}

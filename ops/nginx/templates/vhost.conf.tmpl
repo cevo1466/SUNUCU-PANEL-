@@ -1,0 +1,156 @@
+# Studio Panel — otomatik üretilen Nginx vhost şablonu
+#
+# TEK KANONİK ADRES: https://{{DOMAIN}}
+#
+# Sertifika kurulduktan sonra diğer üç giriş de 301 ile oraya gider:
+#   http://{{DOMAIN}}       -> https://{{DOMAIN}}
+#   http://www.{{DOMAIN}}   -> https://{{DOMAIN}}   (tek sıçrama)
+#   https://www.{{DOMAIN}}  -> https://{{DOMAIN}}
+# Hepsi 301 (kalıcı): tarayıcı ve arama motoru sonucu önbelleğe alır, aynı
+# içerik dört ayrı adreste görünmez.
+#
+# 80 PORTUNDAKİ YÖNLENDİRME KOŞULLU — ve bu bilinçli.
+# Cloudflare "Flexible" SSL modunda kenar sunucu origin'e HTTP ile bağlanır.
+# Koşulsuz bir 301 orada sonsuz döngü yapar: origin https'e yollar, Cloudflare
+# yine http ile gelir, tekrar 301... `X-Forwarded-Proto` ziyaretçinin GERÇEKTE
+# hangi şemayı kullandığını söyler; https ise yönlendirilmez, içerik sunulur.
+# Ziyaretçi yine https'te olur, döngü olmaz. Doğrudan (Cloudflare'siz) gelen
+# http isteğinde başlık yoktur ve yönlendirme çalışır.
+# ACME de ayrıca muaf: doğrulama isteği 301 yeseydi sertifika yenilemesi 90
+# gün sonra sessizce dururdu.
+#
+# İçeriği YALNIZCA https://{{DOMAIN}} sunar; www için ayrı, sadece yönlendiren
+# bir 443 bloğu var. www'yi içerik bloğunun ikinci adı yapmak daha kısa olurdu
+# ama o zaman www 301 DEĞİL 200 dönerdi — kullanıcının istediği kanonik
+# davranış bu değil.
+#
+# {{SERVER_NAMES}} = alan adı + www alternatifi (bkz. nginxTemplate.ts
+# serverNamesFor). Yalnızca yönlendirme yapan bloklarda kullanılır.
+# Kaynak: apps/api/src/lib/nginxTemplate.ts (render sırasında {{...}} yer
+# tutucuları doldurulur). Bu dosya BİZZAT nginx tarafından okunmaz — önce
+# ops/generated/<domain>.conf olarak render edilir, sonra prod sunucuda
+# ops/scripts/deploy-vhost.sh ile (root + onay ile) /etc/nginx/conf.d/'ye
+# kopyalanır. Bu sandbox'ta /etc/nginx/conf.d'ye YAZILMAZ.
+#
+# Not: SSL sertifikası alınana kadar SADECE HTTP (80) bloğu aktiftir — HTTPS
+# bloğu aşağıda YORUM SATIRI olarak duruyor. `listen 443 ssl` bir
+# ssl_certificate olmadan `nginx -t`'yi başarısız yapar; bu yüzden HTTPS
+# bloğu, Modül 3 (Certbot) sertifikayı BAŞARIYLA aldıktan SONRA bu dosyaya
+# eklenmeli/etkinleştirilmeli (yorumdan çıkarılmalı), asla önceden değil.
+
+server {
+    listen 80;
+    listen [::]:80;
+    http2 on;
+    server_name {{SERVER_NAMES}};
+
+    root {{DOCUMENT_ROOT}};
+    index index.html index.htm;
+
+    # Let's Encrypt HTTP-01 doğrulaması (Modül 3 — Certbot).
+    #
+    # Doğrulama dosyası MÜŞTERİNİN klasörüne DEĞİL, ortak /var/www/vhosts/_acme
+    # dizinine yazılır. Önceden site köküne yazılıyordu ve certbot boş
+    # `.well-known/acme-challenge/` klasörünü orada bırakıyordu: dosya
+    # yöneticisinde kullanıcının kendi koymadığı bir klasör görünüyordu ve her
+    # yenilemede geri geliyordu.
+    #
+    # try_files ile eski yere de bakılır: bu değişiklikten ÖNCE alınmış
+    # sertifikaların yenileme kaydı hâlâ site kökünü gösteriyor olabilir
+    # (certbot yolu kendi renewal conf'unda saklar). Tek yer bırakılsaydı o
+    # sertifikalar 90 gün sonra SESSİZCE yenilenemezdi.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/vhosts/_acme;
+        try_files $uri @acme-eski-konum;
+    }
+    location @acme-eski-konum {
+        root {{DOCUMENT_ROOT}};
+    }
+
+    # --- Runtime'a göre üretilen blok (statik/PHP-FPM/reverse-proxy) ---
+    # apps/api/src/lib/nginxTemplate.ts içindeki buildLocationBlock() domain'in
+    # runtime_type'ına (Runtime aracı, bkz. domains/:id?tab=runtime) göre bu
+    # yer tutucuyu doldurur.
+{{LOCATION_BLOCK}}
+
+    access_log /var/log/nginx/{{DOMAIN}}.access.log;
+    error_log  /var/log/nginx/{{DOMAIN}}.error.log;
+}
+
+# --- HTTPS (443, HTTP/2) — Modül 3 sertifika aldıktan SONRA etkinleştirilir ---
+# server {
+#     listen 443 ssl;
+#     listen [::]:443 ssl;
+#     http2 on;
+#     server_name {{DOMAIN}};
+#
+#     root {{DOCUMENT_ROOT}};
+#     index index.html index.htm;
+#
+#     ssl_certificate     /etc/letsencrypt/live/{{DOMAIN}}/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/{{DOMAIN}}/privkey.pem;
+#
+#     # --- Güvenlik başlıkları ---
+#     #
+#     # HSTS YALNIZCA BU BLOKTA (443). RFC 6797: tarayıcı bu başlığı şifresiz
+#     # bağlantıda zaten yok sayar; 80 bloğuna koymak sahte bir güvence
+#     # verirdi. `always` şart — nginx varsayılan olarak başlığı yalnızca
+#     # 2xx/3xx yanıtlara ekler, 404 ve 500'de düşerdi.
+#     #
+#     # includeSubDomains VE preload BİLEREK YOK:
+#     #  - includeSubDomains tüm alt alan adlarını HTTPS'e ZORLAR. Sertifikası
+#     #    olmayan bir alt alan adı (ör. mail.<domain> — SMTP için A kaydı var
+#     #    ama HTTPS vhost'u yok) tarayıcıda tamamen erişilemez hale gelir ve
+#     #    max-age boyunca (1 yıl) geri alınamaz.
+#     #  - preload tarayıcı listelerine girmek demek; geri dönüşü aylar sürer
+#     #    ve bilinçli bir başvuru gerektirir.
+#     # İkisi de STUDIO_PANEL_HSTS ile açılabilir (bkz. nginxTemplate.ts).
+#     add_header Strict-Transport-Security "{{HSTS_VALUE}}" always;
+#     add_header X-Content-Type-Options    "nosniff" always;
+#     add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+#     # DENY değil SAMEORIGIN: DENY, sitenin kendi sayfalarını iframe'de
+#     # göstermesini de engeller ve bunu bilmeyen müşteri sitelerini bozar.
+#     add_header X-Frame-Options           "SAMEORIGIN" always;
+#     add_header Permissions-Policy        "camera=(), microphone=(), geolocation=()" always;
+#     # Content-Security-Policy BİLEREK YOK: içeriğe göre yazılması gerekir,
+#     # genel bir kural müşteri sitelerini sessizce bozar (bkz. müşterinin
+#     # kendi snippet'i, ona özel yazılmış).
+#
+{{LOCATION_BLOCK_HTTPS}}
+#
+#     access_log /var/log/nginx/{{DOMAIN}}.access.log;
+#     error_log  /var/log/nginx/{{DOMAIN}}.error.log;
+# }
+#
+{{WWW_REDIRECT_HTTPS}}
+#
+# server {
+#     listen 80;
+#     listen [::]:80;
+#     http2 on;
+#     server_name {{SERVER_NAMES}};
+#
+#     root {{DOCUMENT_ROOT}};
+#     index index.html index.htm;
+#
+#     location ^~ /.well-known/acme-challenge/ {
+#         root /var/www/vhosts/_acme;
+#         try_files $uri @acme-eski-konum-https;
+#     }
+#     location @acme-eski-konum-https { root {{DOCUMENT_ROOT}}; }
+#
+#     # Kanonik adrese 301. İki istisna için gerekçe şablonun başında.
+#     # Hedef $host DEĞİL {{DOMAIN}}: $host olsaydı http://www -> https://www
+#     # olur, oradan ikinci bir 301 daha gerekirdi.
+#     set $sp_https_redirect 1;
+#     if ($http_x_forwarded_proto = "https") { set $sp_https_redirect 0; }
+#     if ($request_uri ~ "^/\.well-known/acme-challenge/") { set $sp_https_redirect 0; }
+#     if ($sp_https_redirect) { return 301 https://{{DOMAIN}}$request_uri; }
+#
+#     # Yönlendirilmeyen durum (Cloudflare Flexible) için içerik burada da
+#     # sunulur; blok yalnızca yönlendirici olsaydı o kurulumda site 404 olurdu.
+{{LOCATION_BLOCK_HTTPS}}
+#
+#     access_log /var/log/nginx/{{DOMAIN}}.access.log;
+#     error_log  /var/log/nginx/{{DOMAIN}}.error.log;
+# }

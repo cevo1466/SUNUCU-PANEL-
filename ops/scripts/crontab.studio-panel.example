@@ -1,0 +1,2 @@
+# Her gün 03:17 UTC. DATABASE_URL değerini gerçek prod bağlantısıyla değiştirin.
+17 3 * * * DATABASE_URL='postgresql://studio_panel:CHANGE_ME@127.0.0.1:5432/studio_panel' /var/www/vhosts/studio-panel/ops/scripts/ssl-renew.sh >> /var/log/studio-panel-ssl-renew.log 2>&1

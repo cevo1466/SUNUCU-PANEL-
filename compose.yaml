@@ -1,0 +1,54 @@
+services:
+  panel:
+    build:
+      context: .
+      args:
+        PANEL_DISPLAY_NAME: ${PANEL_DISPLAY_NAME}
+        PANEL_SHELL_USER: ${PANEL_SHELL_USER}
+    image: ${PANEL_CONTAINER_NAME}:local
+    container_name: ${PANEL_CONTAINER_NAME}
+    privileged: true
+    restart: unless-stopped
+    init: true
+    environment:
+      - PANEL_DISPLAY_NAME
+      - PANEL_SHELL_USER
+      - PANEL_HOSTNAME
+      - MAIL_HOSTNAME
+      - DNS_PRIMARY_NS
+      - DNS_SECONDARY_NS
+      - DNS_HOSTMASTER_EMAIL
+      - CLOUDFLARE_API_TOKEN
+      - HETRIX_API_KEY
+      - TELEGRAM_BOT_TOKEN
+      - TELEGRAM_CHAT_ID
+      - SERVER_PUBLIC_IP
+      - PANEL_OWNER_EMAIL
+      - DATABASE_URL
+      - STUDIO_PG_USER
+      - STUDIO_PG_PASSWORD
+      - STUDIO_PG_DATABASE
+      - MYSQL_ADMIN_USER
+      - MYSQL_ADMIN_PASSWORD
+      - SESSION_SECRET
+      - ADMINER_URL=/adminer
+      - ALLOW_PUBLIC_REGISTRATION=false
+      - DOCKER_TLS_CERTDIR=
+      - NGINX_UPSTREAM_HOST=172.19.0.1
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "${SERVER_PUBLIC_IP}:53:53/tcp"
+      - "${SERVER_PUBLIC_IP}:53:53/udp"
+      - "21:21/tcp"
+      - "25:25/tcp"
+      - "465:465/tcp"
+      - "587:587/tcp"
+      - "993:993/tcp"
+      - "995:995/tcp"
+      - "30000-30100:30000-30100/tcp"
+    volumes:
+      - ./data/docker:/var/lib/docker
+      - ./data/vhosts:/var/www/vhosts
+      - ./data/state:/var/lib/panel-state
+    stop_grace_period: 60s
