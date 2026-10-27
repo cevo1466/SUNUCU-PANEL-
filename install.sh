@@ -16,6 +16,7 @@ fi
 [[ $# -eq 0 ]] || err "Kullanım: bash install.sh [--check-os]"
 [[ $EUID -eq 0 ]] || err "Kurulum root ile çalışmalı: sudo bash install.sh"
 [[ -r /dev/tty ]] || err "İsimleri ve parolayı sormak için etkileşimli terminal gerekli."
+[[ ! -f "$ROOT/.env" ]] || err "Bu dizinde kurulum ayarları zaten var. Mevcut verileri korumak için yeniden kurulum durduruldu."
 cpu=$(nproc)
 mem_kib=$(awk '/MemTotal:/ {print $2}' /proc/meminfo)
 disk_gib=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
@@ -39,15 +40,29 @@ case "$shell_user" in
     err "Bu kullanıcı adı sistem servisi tarafından kullanılıyor; başka ad seç."
     ;;
 esac
-ask panel_host 'Panel alan adı (A kaydını bu VDS IP adresine yönlendir)' 'panel.example.com'
-[[ "$panel_host" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir panel alan adı gir."
-ask mail_domain 'Posta alanı (mail.<alan> kullanılacak)' 'example.com'
-[[ "$mail_domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir posta alanı gir."
-ask dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain"
-[[ "$dns_primary_ns" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir DNS sunucu adı gir."
-ask dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' ''
-[[ -z "$dns_secondary_ns" || "$dns_secondary_ns" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir ikinci DNS sunucu adı gir."
-ask admin_email 'Yönetici e-posta adresi' "admin@$mail_domain"
+ask panel_host 'Panel alan adı (henüz yoksa yok yaz)' 'yok'
+domain_pending=0
+if [[ "$panel_host" == yok ]]; then
+  domain_pending=1
+  panel_host=panel.invalid
+  mail_domain=panel.invalid
+  dns_primary_ns=ns1.panel.invalid
+  dns_secondary_ns=''
+  say "Alan adı olmadan kurulum: panel IP üzerinden HTTP ile açılacak. SSL ve gerçek e-posta alan adı daha sonra etkinleşir."
+else
+  [[ "$panel_host" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir panel alan adı gir."
+  ask mail_domain 'Posta alanı (mail.<alan> kullanılacak)' 'example.com'
+  [[ "$mail_domain" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir posta alanı gir."
+  ask dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain"
+  [[ "$dns_primary_ns" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir DNS sunucu adı gir."
+  ask dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' ''
+  [[ -z "$dns_secondary_ns" || "$dns_secondary_ns" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || err "Geçerli bir ikinci DNS sunucu adı gir."
+fi
+if (( domain_pending )); then
+  ask admin_email 'Yönetici giriş e-posta adresi (kullandığın gerçek bir adres)' ''
+else
+  ask admin_email 'Yönetici giriş e-posta adresi' "admin@$mail_domain"
+fi
 [[ "$admin_email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || err "Geçerli bir e-posta adresi gir."
 ask admin_user 'Yönetici kullanıcı adı' 'admin'
 [[ "$admin_user" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]] || err "Yönetici adı 3-32 karakter olmalı."
@@ -91,7 +106,6 @@ if [[ ! -s /proc/swaps || $(wc -l </proc/swaps) -le 1 ]]; then
   grep -q '^/swapfile-panel ' /etc/fstab || printf '/swapfile-panel none swap sw 0 0\n' >> /etc/fstab
 fi
 
-if [[ -f "$ROOT/.env" ]]; then err "Bu dizinde kurulum zaten var. Yeniden kurulum mevcut verileri değiştirebilir."; fi
 session_secret=$(openssl rand -hex 48)
 pg_password=$(openssl rand -hex 24)
 mysql_password=$(openssl rand -hex 24)
@@ -102,6 +116,7 @@ PANEL_CONTAINER_NAME=$container_name
 PANEL_SHELL_USER=$shell_user
 PANEL_HOSTNAME=$panel_host
 MAIL_HOSTNAME=mail.$mail_domain
+PANEL_DOMAIN_PENDING=$domain_pending
 DNS_PRIMARY_NS=$dns_primary_ns
 DNS_SECONDARY_NS=$dns_secondary_ns
 DNS_HOSTMASTER_EMAIL=hostmaster@$mail_domain
@@ -138,21 +153,29 @@ printf '%s\n' "$admin_password" | docker exec -i -w "$PANEL_SCRIPT_ROOT" "$conta
 unset admin_password session_secret pg_password mysql_password
 
 # Certificate issuance requires public DNS and port 80 reachability.
-panel_a=$(getent ahostsv4 "$panel_host" 2>/dev/null | awk 'NR==1 {print $1}')
-mail_a=$(getent ahostsv4 "mail.$mail_domain" 2>/dev/null | awk 'NR==1 {print $1}')
-if [[ "$panel_a" == "$public_ip" ]]; then
-  say "Panel TLS sertifikası alınıyor"
-  docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/panel-ssl.sh" "$panel_host" || true
+if (( domain_pending )); then
+  say "Alan adı daha sonra eklenebilir: sudo bash $ROOT/configure-domain.sh"
 else
-  say "Panel DNS henüz $public_ip adresine yönelmiyor; TLS sertifikası beklemede."
-fi
-if [[ "$mail_a" == "$public_ip" ]]; then
-  say "Posta TLS sertifikası alınıyor"
-  docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/mail-ssl.sh" "$mail_domain" || true
-else
-  say "mail.$mail_domain DNS henüz $public_ip adresine yönelmiyor; posta TLS sertifikası beklemede."
+  panel_a=$(getent ahostsv4 "$panel_host" 2>/dev/null | awk 'NR==1 {print $1}')
+  mail_a=$(getent ahostsv4 "mail.$mail_domain" 2>/dev/null | awk 'NR==1 {print $1}')
+  if [[ "$panel_a" == "$public_ip" ]]; then
+    say "Panel TLS sertifikası alınıyor"
+    docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/panel-ssl.sh" "$panel_host" || true
+  else
+    say "Panel DNS henüz $public_ip adresine yönelmiyor; TLS sertifikası beklemede."
+  fi
+  if [[ "$mail_a" == "$public_ip" ]]; then
+    say "Posta TLS sertifikası alınıyor"
+    docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/mail-ssl.sh" "$mail_domain" || true
+  else
+    say "mail.$mail_domain DNS henüz $public_ip adresine yönelmiyor; posta TLS sertifikası beklemede."
+  fi
 fi
 
 say "Kurulum tamamlandı. Servisleri kontrol et: docker exec -it $container_name sh"
-printf 'Panel: https://%s (sertifika için DNS gerekli)\n' "$panel_host"
+if (( domain_pending )); then
+  printf 'Panel: http://%s (alan adı ve HTTPS henüz yok)\n' "$public_ip"
+else
+  printf 'Panel: https://%s (sertifika için DNS gerekli)\n' "$panel_host"
+fi
 printf 'Yedekler: %s/data/vhosts/studio-panel/ops/backups\n' "$ROOT"

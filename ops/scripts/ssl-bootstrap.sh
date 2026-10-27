@@ -6,6 +6,10 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 [[ -f "$PROJECT_ROOT/.env.loopkit" ]] || { echo 'HATA: panel ayarları yok' >&2; exit 1; }
 # shellcheck disable=SC1091
 source "$PROJECT_ROOT/.env.loopkit"
+if [[ "${PANEL_DOMAIN_PENDING:-0}" == 1 ]]; then
+  echo 'Alan adı henüz tanımlı değil; SSL beklemede.'
+  exit 0
+fi
 : "${PANEL_HOSTNAME:?}"
 : "${MAIL_HOSTNAME:?}"
 : "${SERVER_PUBLIC_IP:?}"
