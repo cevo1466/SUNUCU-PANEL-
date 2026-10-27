@@ -1,13 +1,15 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRightIcon,
   GlobeAltIcon,
   LockClosedIcon,
   PlusIcon,
+  SignalIcon,
 } from "@heroicons/react/24/outline";
-import type { Domain } from "@/lib/api";
+import { api, ApiError, type Domain, type UptimeMetrics } from "@/lib/api";
 import { relativeDays } from "@/lib/format";
 import { useMetricsHistory } from "@/lib/useMetricsHistory";
 import { AppShell, PageHeader, useShell } from "@/components/layout/AppShell";
@@ -42,6 +44,67 @@ function nextStep(domain: Domain): { reason: string; action: string; tab: string
     };
   }
   return { reason: "SSL sertifikası yok", action: "Sertifika al", tab: "ssl" };
+}
+
+/** Temiz kurulumda görünmez; yalnız kullanıcının Hetrix anahtarı bağlıysa açılır. */
+function HetrixSummary() {
+  const [uptime, setUptime] = useState<UptimeMetrics | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.uptimeMetrics()
+      .then((result) => { if (!cancelled) setUptime(result); })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setUptime({
+          status: "error",
+          httpStatus: err instanceof ApiError ? err.status : 0,
+          message: err instanceof Error ? err.message : "HetrixTools okunamadı.",
+        });
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!uptime || uptime.status === "not_configured") return null;
+
+  return (
+    <Panel>
+      <PanelHead
+        title={<><SignalIcon aria-hidden="true" />HetrixTools izleme</>}
+        note={uptime.status === "ok" ? `${uptime.monitors.length} monitör` : undefined}
+        actions={<Link className="sp-link" href="/server">Tümünü gör →</Link>}
+      />
+      <PanelBody flush>
+        {uptime.status === "error" ? (
+          <div style={{ padding: 14 }}><Note tone="warn">HetrixTools yanıt vermedi: {uptime.message}</Note></div>
+        ) : uptime.monitors.length === 0 ? (
+          <EmptyState
+            icon={SignalIcon}
+            title="Henüz Hetrix monitörü yok"
+            text="Kendi HetrixTools hesabınızda bir monitör oluşturduğunuzda burada görünür."
+          />
+        ) : (
+          <div className="sp-table-wrap">
+            <table className="sp-table">
+              <thead><tr><th>Monitör</th><th>Hedef</th><th>Durum</th></tr></thead>
+              <tbody>
+                {uptime.monitors.slice(0, 5).map((monitor) => {
+                  const running = ["up", "online"].includes(monitor.uptime_status.toLowerCase());
+                  return (
+                    <tr key={monitor.id}>
+                      <td>{monitor.name}</td>
+                      <td className="sp-mono">{monitor.target}</td>
+                      <td><Badge tone={running ? "ok" : "warn"}>{running ? "Çalışıyor" : "Kontrol et"}</Badge></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </PanelBody>
+    </Panel>
+  );
 }
 
 function DashboardView() {
@@ -261,6 +324,7 @@ function DashboardView() {
             )}
           </div>
         </div>
+        <HetrixSummary />
       </div>
     </>
   );

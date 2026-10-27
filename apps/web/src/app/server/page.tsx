@@ -267,8 +267,11 @@ function UptimePanel() {
         ) : uptime.status === "not_configured" ? (
           <div style={{ padding: 14 }}>
             <Note>
-              HetrixTools bağlanmadı. Sunucudaki <span className="sp-mono">.env.loopkit</span> dosyasına{" "}
-              <span className="sp-mono">HETRIX_API_KEY</span> ekleyip API&apos;yi yeniden başlatın.
+              HetrixTools bağlanmadı. VDS&apos;deki{" "}
+              <span className="sp-mono">/opt/studio-panel-installer/.env</span> dosyasına kendi{" "}
+              <span className="sp-mono">HETRIX_API_KEY</span> anahtarınızı ekleyin. Ardından kurulum
+              dizininde <span className="sp-mono">sudo docker compose --env-file .env up -d</span>{" "}
+              çalıştırın.
             </Note>
           </div>
         ) : uptime.status === "error" ? (
