@@ -1,10 +1,7 @@
 import fs from "node:fs/promises";
-import { execFile } from "node:child_process";
 import { availableParallelism } from "node:os";
-import { promisify } from "node:util";
 import type { CgroupMetrics } from "@studio-panel/shared";
 
-const execFileAsync = promisify(execFile);
 const CGROUP_ROOT = "/sys/fs/cgroup";
 
 async function readFileSafe(relPath: string): Promise<string | null> {
@@ -165,19 +162,30 @@ async function readReclaimableFileBytes(): Promise<number> {
 }
 
 async function readDiskUsage(targetPath: string) {
-  // busybox df -k → satır: Filesystem 1K-blocks Used Available Use% Mounted-on
-  const { stdout } = await execFileAsync("df", ["-k", targetPath]);
-  const lines = stdout.trim().split("\n");
-  const last = lines[lines.length - 1];
-  const cols = last.trim().split(/\s+/);
-  const totalKb = Number(cols[1]);
-  const usedKb = Number(cols[2]);
-  const availKb = Number(cols[3]);
+  // `df` çıktısı dosya sistemi adı satıra taştığında sütun kaydırabilir;
+  // ekranda kullanılan alan toplamdan büyük (%503) görünebiliyordu.
+  // statfs aynı bilgiyi doğrudan çekirdekten sayısal olarak alır.
+  const stats = await fs.statfs(targetPath);
+  const totalBytes = stats.blocks * stats.bsize;
+  const usedBytes = (stats.blocks - stats.bfree) * stats.bsize;
+  const availableBytes = stats.bavail * stats.bsize;
+  if (
+    !Number.isFinite(totalBytes) ||
+    !Number.isFinite(usedBytes) ||
+    !Number.isFinite(availableBytes) ||
+    totalBytes <= 0 ||
+    usedBytes < 0 ||
+    usedBytes > totalBytes ||
+    availableBytes < 0 ||
+    availableBytes > totalBytes
+  ) {
+    throw new Error(`Disk ölçümü geçersiz: ${targetPath}`);
+  }
   return {
     path: targetPath,
-    totalBytes: totalKb * 1024,
-    usedBytes: usedKb * 1024,
-    availableBytes: availKb * 1024,
+    totalBytes,
+    usedBytes,
+    availableBytes,
   };
 }
 
