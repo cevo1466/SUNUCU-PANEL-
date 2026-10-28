@@ -49,7 +49,7 @@ valid_domain() {
   [[ "$1" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$ ]] || return 1
   case "${1,,}" in example.com|*.example.com|*.example|*.invalid|*.test|*.localhost) return 1;; esac
 }
-valid_panel_host() { [[ "$1" == yok ]] || valid_domain "$1"; }
+valid_domain_or_yok() { [[ "$1" == yok ]] || valid_domain "$1"; }
 valid_optional_domain() { [[ -z "$1" ]] || valid_domain "$1"; }
 valid_email() { [[ "$1" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]]; }
 valid_admin_user() { [[ "$1" =~ ^[A-Za-z][A-Za-z0-9_-]{2,31}$ ]]; }
@@ -63,9 +63,9 @@ valid_ipv4() {
 ask_valid panel_name 'Panelde görünecek ad' 'Studio Panel' valid_panel_name '2-60 karakter; harf, rakam, boşluk, _ veya - kullan.'
 ask_valid container_name 'Docker konteyner adı' 'core-panel' valid_container_name 'Küçük harfle başla; yalnız a-z, 0-9, _ veya - kullan.'
 ask_valid shell_user 'Konteyner kullanıcı adı (yalnız ad; su komutunu yazma)' 'devuser' valid_shell_user 'Küçük harfle başla; yalnız a-z, 0-9, _ veya - kullan ve servis adlarından kaçın.'
-ask_valid panel_host 'Panel alan adı (henüz yoksa yok yaz)' 'yok' valid_panel_host 'Gerçek bir alan adı veya yok yaz.'
+ask_valid panel_domain 'Ana alan adı (panel.<alan-adı> açılacak; henüz yoksa yok yaz)' 'yok' valid_domain_or_yok 'Gerçek bir ana alan adı veya yok yaz.'
 domain_pending=0
-if [[ "$panel_host" == yok ]]; then
+if [[ "$panel_domain" == yok ]]; then
   domain_pending=1
   panel_host=panel.invalid
   mail_domain=panel.invalid
@@ -73,7 +73,10 @@ if [[ "$panel_host" == yok ]]; then
   dns_secondary_ns=''
   say "Alan adı olmadan kurulum: panel IP üzerinden HTTP ile açılacak. SSL ve gerçek e-posta alan adı daha sonra etkinleşir."
 else
-  ask_valid mail_domain 'Posta alanı (mail.<alan> kullanılacak)' '' valid_domain 'Sahip olduğun gerçek alan adını gir.'
+  panel_host="panel.$panel_domain"
+  mail_domain="$panel_domain"
+  say "Panel adresi: https://$panel_host (A kaydı: $panel_host -> VDS IP)"
+  say "Posta adresi: mail.$mail_domain (A kaydı ayrıca gerekli)"
   ask_valid dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain" valid_domain 'Geçerli bir DNS sunucu adı gir.'
   ask_valid dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' '' valid_optional_domain 'Geçerli bir DNS sunucu adı gir veya boş bırak.'
 fi
@@ -171,30 +174,23 @@ printf '%s\n' "$admin_password" | docker exec -i -w "$PANEL_SCRIPT_ROOT" "$conta
   node ops/scripts/seed-admin.mjs "$admin_email" "$admin_user"
 unset admin_password session_secret pg_password mysql_password
 
-# Certificate issuance requires public DNS and port 80 reachability.
+# Certificate issuance requires public DNS and port 80 reachability. The
+# bootstrap job is also scheduled for later DNS propagation.
 if (( domain_pending )); then
   say "Alan adı daha sonra eklenebilir: sudo bash $ROOT/configure-domain.sh"
 else
-  panel_a=$(getent ahostsv4 "$panel_host" 2>/dev/null | awk 'NR==1 {print $1}')
-  mail_a=$(getent ahostsv4 "mail.$mail_domain" 2>/dev/null | awk 'NR==1 {print $1}')
-  if [[ "$panel_a" == "$public_ip" ]]; then
-    say "Panel TLS sertifikası alınıyor"
-    docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/panel-ssl.sh" "$panel_host" || true
-  else
-    say "Panel DNS henüz $public_ip adresine yönelmiyor; TLS sertifikası beklemede."
-  fi
-  if [[ "$mail_a" == "$public_ip" ]]; then
-    say "Posta TLS sertifikası alınıyor"
-    docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/mail-ssl.sh" "$mail_domain" || true
-  else
-    say "mail.$mail_domain DNS henüz $public_ip adresine yönelmiyor; posta TLS sertifikası beklemede."
-  fi
+  say "Panel ve posta TLS sertifikaları deneniyor"
+  docker exec "$container_name" "$PANEL_SCRIPT_ROOT/ops/scripts/ssl-bootstrap.sh" \
+    || say "SSL henüz tamamlanmadı; DNS/80 portu hazır olunca zamanlayıcı yeniden deneyecek."
 fi
 
 say "Kurulum tamamlandı. Servisleri kontrol et: docker exec -it $container_name sh"
 if (( domain_pending )); then
   printf 'Panel: http://%s (alan adı ve HTTPS henüz yok)\n' "$public_ip"
+elif docker exec "$container_name" sh -c \
+  'test -s "/etc/letsencrypt/live/$PANEL_HOSTNAME/fullchain.pem" && test -f /etc/nginx/conf.d/studio-panel-ip-redirect.conf' >/dev/null 2>&1; then
+  printf 'Panel: https://%s (http://%s -> HTTPS 301)\n' "$panel_host" "$public_ip"
 else
-  printf 'Panel: https://%s (sertifika için DNS gerekli)\n' "$panel_host"
+  printf 'Panel: http://%s (https://%s sertifikası DNS/80 portu bekliyor)\n' "$public_ip" "$panel_host"
 fi
 printf 'Yedekler: %s/data/vhosts/studio-panel/ops/backups\n' "$ROOT"

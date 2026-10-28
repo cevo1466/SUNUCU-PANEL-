@@ -558,8 +558,9 @@ case "$CMD" in
     # (Let's Encrypt tarafinda ayni dakikada toplanmayi onler).
     # ssl-renew.sh root ister; certbot ve `docker cp` icin.
     echo "17 3 * * * sudo $PROJECT_ROOT/ops/scripts/ssl-renew.sh >> $PROJECT_ROOT/ops/ssl-renew.log 2>&1" >> "$TMP"
-    # İlk kurulumda DNS hazır değilse sertifikaları DNS düzelince al.
-    echo "31 */6 * * * sudo $PROJECT_ROOT/ops/scripts/ssl-bootstrap.sh >> $PROJECT_ROOT/ops/ssl-bootstrap.log 2>&1" >> "$TMP"
+    # İlk kurulumda DNS hazır değilse 15 dakikada bir tekrar dene. A kaydı
+    # doğru IP'ye dönmeden Certbot çağrılmadığı için gereksiz istek gönderilmez.
+    echo "*/15 * * * * sudo $PROJECT_ROOT/ops/scripts/ssl-bootstrap.sh >> $PROJECT_ROOT/ops/ssl-bootstrap.log 2>&1" >> "$TMP"
     # Gunluk yedek, gece 02:40 (SSL yenilemesinden once, cakismasin diye).
     echo "40 2 * * * $PROJECT_ROOT/ops/scripts/backup-scheduled.sh run >> $PROJECT_ROOT/ops/backup.log 2>&1" >> "$TMP"
     # HAFTALIK GERI YUKLEME TESTI (pazar 04:20). Bu satir olmadan yedekler
