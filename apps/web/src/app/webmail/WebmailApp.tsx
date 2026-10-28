@@ -124,6 +124,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
         const data = await webmailApi.messages(mailbox, { search: term || undefined, offset: pageOffset });
         setMessages(data.messages);
         setTotal(data.total);
+        setSelectedUids((previous) => previous.filter((uid) => data.messages.some((message) => message.uid === uid)));
       } catch (err) {
         if (err instanceof WebmailApiError && err.status === 401) return onSignedOut();
         setMessages([]);
