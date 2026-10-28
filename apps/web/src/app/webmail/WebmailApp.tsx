@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeftIcon,
   ArrowPathIcon,
@@ -102,6 +102,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
   const [activeSearch, setActiveSearch] = useState("");
   const [composer, setComposer] = useState<ComposerSeed | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const listRequestRef = useRef(0);
   /** Dar ekranda hangi bölme görünüyor. */
   const [mobilePane, setMobilePane] = useState<"list" | "message">("list");
 
@@ -118,19 +119,22 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
 
   const loadMessages = useCallback(
     async (mailbox: string, term: string, pageOffset = 0) => {
+      const requestId = ++listRequestRef.current;
       setLoadingList(true);
       setError(null);
       try {
         const data = await webmailApi.messages(mailbox, { search: term || undefined, offset: pageOffset });
+        if (requestId !== listRequestRef.current) return;
         setMessages(data.messages);
         setTotal(data.total);
         setSelectedUids((previous) => previous.filter((uid) => data.messages.some((message) => message.uid === uid)));
       } catch (err) {
+        if (requestId !== listRequestRef.current) return;
         if (err instanceof WebmailApiError && err.status === 401) return onSignedOut();
         setMessages([]);
         setError(err instanceof WebmailApiError ? err.message : "Mesajlar okunamadı.");
       } finally {
-        setLoadingList(false);
+        if (requestId === listRequestRef.current) setLoadingList(false);
       }
     },
     [onSignedOut],
