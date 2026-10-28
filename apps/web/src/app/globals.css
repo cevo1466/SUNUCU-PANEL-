@@ -2068,3 +2068,14 @@ a { color: inherit; text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   .sp-mailbox-fill { transition: none; }
 }
+
+/* Webmail toplu seçim ve sayfalama */
+.wm-row-check { align-self: center; flex: 0 0 auto; width: 16px; height: 16px; margin: 0 4px 0 12px; accent-color: var(--sp-accent); cursor: pointer; }
+.wm-row:has(.wm-row-check:checked) { background: var(--sp-accent-soft); }
+.wm-bulkbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 7px 12px; border-bottom: 1px solid var(--sp-line); background: var(--sp-surface); }
+.wm-select-all { display: inline-flex; align-items: center; gap: 8px; color: var(--sp-ink-muted); font-size: 12px; cursor: pointer; }
+.wm-select-all input { width: 16px; height: 16px; accent-color: var(--sp-accent); cursor: pointer; }
+.wm-bulkbar .sp-btn svg { width: 16px; height: 16px; }
+.wm-notice { margin: 0; padding: 9px 12px; color: var(--sp-success-ink, var(--sp-ink)); background: var(--sp-success-soft, var(--sp-surface)); font-size: 12px; }
+.wm-page-actions { display: inline-flex; gap: 4px; margin-left: 10px; }
+.wm-list-total { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
