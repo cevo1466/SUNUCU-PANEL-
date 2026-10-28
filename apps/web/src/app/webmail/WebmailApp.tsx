@@ -91,6 +91,10 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
   const [current, setCurrent] = useState("INBOX");
   const [messages, setMessages] = useState<MessageSummary[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [selectedUids, setSelectedUids] = useState<number[]>([]);
+  const [deleting, setDeleting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<MessageDetail | null>(null);
   const [loadingList, setLoadingList] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState(false);
@@ -113,11 +117,11 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
   }, [onSignedOut]);
 
   const loadMessages = useCallback(
-    async (mailbox: string, term: string) => {
+    async (mailbox: string, term: string, pageOffset = 0) => {
       setLoadingList(true);
       setError(null);
       try {
-        const data = await webmailApi.messages(mailbox, { search: term || undefined });
+        const data = await webmailApi.messages(mailbox, { search: term || undefined, offset: pageOffset });
         setMessages(data.messages);
         setTotal(data.total);
       } catch (err) {
@@ -136,9 +140,10 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
   }, [loadMailboxes]);
 
   useEffect(() => {
-    void loadMessages(current, activeSearch);
+    void loadMessages(current, activeSearch, offset);
     setSelected(null);
-  }, [current, activeSearch, loadMessages]);
+    setSelectedUids([]);
+  }, [current, activeSearch, offset, loadMessages]);
 
   async function openMessage(summary: MessageSummary) {
     setLoadingMessage(true);
@@ -174,18 +179,40 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
     }
   }
 
-  async function removeMessage(uid: number) {
+  const trashSelected = mailboxes?.find((box) => box.path === current)?.role === "trash";
+  const permanentDeletion = !mailboxes || trashSelected || !mailboxes.some((box) => box.role === "trash");
+  const visibleUids = messages?.map((m) => m.uid) ?? [];
+  const allVisibleSelected = visibleUids.length > 0 && visibleUids.every((uid) => selectedUids.includes(uid));
+
+  function toggleSelection(uid: number) {
+    setSelectedUids((prev) => prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]);
+  }
+
+  async function removeMessages(uids: number[]) {
+    if (!uids.length || deleting) return;
+    if (permanentDeletion && !window.confirm(`${uids.length} mesaj kalıcı olarak silinecek. Devam etmek istiyor musunuz?`)) return;
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
     try {
-      const result = await webmailApi.remove(current, [uid]);
-      setMessages((prev) => (prev ? prev.filter((m) => m.uid !== uid) : prev));
-      if (selected?.uid === uid) {
+      const result = await webmailApi.remove(current, uids);
+      const removed = new Set(uids);
+      setMessages((prev) => (prev ? prev.filter((m) => !removed.has(m.uid)) : prev));
+      setSelectedUids([]);
+      setTotal((prev) => Math.max(0, prev - uids.length));
+      if (selected && removed.has(selected.uid)) {
         setSelected(null);
         setMobilePane("list");
       }
       void loadMailboxes();
-      if (result.permanent) setError(null);
+      setNotice(`${uids.length} mesaj ${result.permanent ? "kalıcı olarak silindi" : "Çöp kutusuna taşındı"}.`);
+      const nextOffset = Math.max(0, offset - (visibleUids.length === uids.length && offset > 0 ? 50 : 0));
+      if (nextOffset !== offset) setOffset(nextOffset);
+      else void loadMessages(current, activeSearch, nextOffset);
     } catch (err) {
       setError(err instanceof WebmailApiError ? err.message : "Mesaj silinemedi.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -277,6 +304,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
                     setCurrent(box.path);
                     setSearch("");
                     setActiveSearch("");
+                    setOffset(0);
                     setMobilePane("list");
                   }}
                 >
@@ -337,6 +365,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
             className="wm-search"
             onSubmit={(e) => {
               e.preventDefault();
+              setOffset(0);
               setActiveSearch(search.trim());
             }}
           >
@@ -354,6 +383,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
                 onClick={() => {
                   setSearch("");
                   setActiveSearch("");
+                  setOffset(0);
                 }}
               >
                 Temizle
@@ -363,7 +393,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => void loadMessages(current, activeSearch)}
+            onClick={() => void loadMessages(current, activeSearch, offset)}
             aria-label="Yenile"
             title="Yenile"
           >
@@ -375,6 +405,27 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
           <p className="wm-error" role="alert">
             {error}
           </p>
+        )}
+        {notice && <p className="wm-notice" role="status">{notice}</p>}
+
+        {messages && messages.length > 0 && (
+          <div className="wm-bulkbar">
+            <label className="wm-select-all">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={(e) => setSelectedUids(e.target.checked ? visibleUids : [])}
+                aria-label="Bu sayfadaki mesajların tümünü seç"
+              />
+              Bu sayfadakileri seç
+            </label>
+            {selectedUids.length > 0 && (
+              <Button size="sm" variant="danger" disabled={deleting} onClick={() => void removeMessages(selectedUids)}>
+                <TrashIcon aria-hidden="true" />
+                {deleting ? "Siliniyor…" : `${selectedUids.length} mesajı sil`}
+              </Button>
+            )}
+          </div>
         )}
 
         <div className="wm-list">
@@ -394,6 +445,13 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
                   data-unread={!m.seen}
                   data-selected={selected?.uid === m.uid}
                 >
+                  <input
+                    className="wm-row-check"
+                    type="checkbox"
+                    checked={selectedUids.includes(m.uid)}
+                    onChange={() => toggleSelection(m.uid)}
+                    aria-label={`${m.subject} mesajını seç`}
+                  />
                   <button
                     className="wm-row-star"
                     onClick={() => void toggleFlag(m)}
@@ -414,11 +472,15 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
                   </button>
                 </article>
               ))}
-              <p className="wm-list-total">
+              <div className="wm-list-total">
                 {activeSearch
-                  ? `${messages.length} sonuç`
-                  : `${messages.length} / ${total} mesaj gösteriliyor`}
-              </p>
+                  ? `${offset + 1}–${offset + messages.length} / ${total} arama sonucu`
+                  : `${offset + 1}–${offset + messages.length} / ${total} mesaj`}
+                <div className="wm-page-actions">
+                  <Button size="sm" variant="ghost" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}>Önceki</Button>
+                  <Button size="sm" variant="ghost" disabled={offset + messages.length >= total} onClick={() => setOffset(offset + 50)}>Sonraki</Button>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -467,7 +529,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
                 <Button
                   size="sm"
                   variant="danger"
-                  onClick={() => void removeMessage(selected.uid)}
+                  onClick={() => void removeMessages([selected.uid])}
                   title="Sil"
                 >
                   <TrashIcon aria-hidden="true" />
