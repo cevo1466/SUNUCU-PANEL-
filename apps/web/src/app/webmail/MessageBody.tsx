@@ -12,10 +12,9 @@ import { Button } from "@/components/ui/button";
  * 1. Sunucu tarafı temizlik (apps/api lib/webmail-mail.ts `sanitizeHtml`):
  *    script/iframe/object düğümleri, `on*` öznitelikleri ve javascript: URL'leri
  *    söker.
- * 2. Burada: gövde `sandbox` iframe içinde, `allow-same-origin` OLMADAN
- *    gösterilir. Bu, HTML'in panelin origin'ine erişimini tamamen keser —
- *    birinci katmandan bir şey kaçsa bile çerezlere, localStorage'a veya DOM'a
- *    ulaşamaz.
+ * 2. Burada: gövde `sandbox` iframe içinde, `allow-scripts` ve `allow-forms`
+ *    OLMADAN gösterilir. `allow-same-origin` sadece üst bileşenin içerik
+ *    yüksekliğini okuyabilmesi için verilir; mail HTML'i kod çalıştıramaz.
  *
  * Tek katmana (regex temizliğine) güvenmek yanlış olurdu: mail gövdesi
  * tamamen güvenilmez girdidir ve saldırgan yalnızca mail göndererek deneme
@@ -64,10 +63,10 @@ export function MessageBody({ html, text }: { html: string | null; text: string 
       try {
         const doc = frame!.contentDocument;
         if (!doc) return;
-        const next = Math.min(Math.max(doc.body.scrollHeight + 24, 160), 20000);
+        const next = Math.min(Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight, 160) + 24, 20000);
         setHeight(next);
       } catch {
-        /* sandbox erişimi engelledi: varsayılan yükseklikte kal */
+        /* erişim beklenmedik biçimde engellenirse varsayılan yükseklikte kal */
       }
     }
     frame.addEventListener("load", measure);
@@ -98,9 +97,9 @@ export function MessageBody({ html, text }: { html: string | null; text: string 
           ref={frameRef}
           className="wm-body-frame"
           style={{ height }}
-          // allow-same-origin YOK: iframe kendi origin'inde izole kalır.
+          // Kod/form çalıştırma yasak; aynı origin yalnızca içerik boyunu ölçmek için.
           // allow-popups, <base target="_blank"> ile bağlantıların açılması için.
-          sandbox="allow-popups allow-popups-to-escape-sandbox"
+          sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           srcDoc={srcDoc}
           title="Mesaj içeriği"
         />
