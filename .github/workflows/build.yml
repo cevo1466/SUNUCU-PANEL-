@@ -138,7 +138,16 @@ jobs:
               > /etc/nginx/conf.d/studio-panel-ssl.conf
             /var/www/vhosts/studio-panel/ops/scripts/panel-ip-redirect.sh
           '
-          headers=$(docker exec panel-smoke curl -sSI -H 'Host: 203.0.113.10' http://127.0.0.1/login)
+          headers=''
+          for i in $(seq 1 20); do
+            headers=$(docker exec panel-smoke curl -sSI -H 'Host: 203.0.113.10' http://127.0.0.1/login)
+            if printf '%s\n' "$headers" | grep -q 'HTTP/1.1 301' \
+              && printf '%s\n' "$headers" | grep -qi '^Location: https://panel.invalid/login'; then
+              break
+            fi
+            sleep 0.25
+          done
+          printf '%s\n' "$headers"
           printf '%s\n' "$headers" | grep -q 'HTTP/1.1 301'
           printf '%s\n' "$headers" | grep -qi '^Location: https://panel.invalid/login'
           docker exec panel-smoke curl -fsS -H 'Host: unrelated.invalid' http://127.0.0.1/login -o /dev/null
