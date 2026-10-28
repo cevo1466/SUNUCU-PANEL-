@@ -21,12 +21,21 @@ points_here() {
 }
 
 failed=0
-if [[ ! -f "/etc/letsencrypt/live/$PANEL_HOSTNAME/fullchain.pem" ]]; then
+panel_conf=/etc/nginx/conf.d/studio-panel-ssl.conf
+panel_ready=0
+if [[ -s "/etc/letsencrypt/live/$PANEL_HOSTNAME/fullchain.pem" && -f "$panel_conf" ]] \
+  && grep -Fq "server_name $PANEL_HOSTNAME;" "$panel_conf" \
+  && grep -Fq 'listen 443 ssl;' "$panel_conf"; then
+  panel_ready=1
+fi
+if (( !panel_ready )); then
   if points_here "$PANEL_HOSTNAME"; then
     "$PROJECT_ROOT/ops/scripts/panel-ssl.sh" "$PANEL_HOSTNAME" || failed=1
   else
     echo "Panel sertifikası DNS kaydı bekliyor: $PANEL_HOSTNAME"
   fi
+else
+  "$PROJECT_ROOT/ops/scripts/panel-ip-redirect.sh" || failed=1
 fi
 
 if [[ ! -f "/etc/letsencrypt/live/$MAIL_HOSTNAME/fullchain.pem" ]]; then

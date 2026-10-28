@@ -13,9 +13,9 @@
 # biri cerezi okuyup panele girebilirdi. Domainlere HSTS eklerken panelin
 # kendisinin duz HTTP'de kaldigi fark edildi (2026-09-03).
 #
-# IP UZERINDEN ERISIM BOZULMAZ: mevcut `default_server` blogu oldugu gibi
-# kalir. Sertifika yalnizca verilen hostname icin ayri bir blokta devreye
-# girer; kullanici kendini disarida birakmaz.
+# Sertifika hazir olana kadar IP uzerinden HTTP erisimi kalir. HTTPS hazir
+# oldugunda ayri IP blogu yalniz bu sunucunun IPv4 adresini 301 ile panele
+# yonlendirir; diger domainlerin ve ACME dogrulamasinin bloklari korunur.
 set -euo pipefail
 
 fail() { echo "HATA: $*" >&2; exit 1; }
@@ -53,6 +53,9 @@ resolves_host() {
 }
 resolves_host "$HOST" || fail "$HOST cozumlenmiyor. Once A kaydini olusturun."
 echo "» $HOST cozumleniyor"
+if [ -f "/etc/nginx/conf.d/$HOST.conf" ]; then
+  fail "$HOST bir web sitesi olarak Nginx'e alinmis. Panel adresiyle cakisir; once bu sitenin Nginx yayinini kaldirin. Site dosyalarini silmeyin."
+fi
 
 mkdir -p "$WEBROOT/.well-known/acme-challenge"
 ACME_OWNER="$(stat -c '%u:%g' "$WEBROOT" 2>/dev/null || true)"
@@ -115,8 +118,8 @@ cat > "$CONF" <<EOF
 # Studio Panel — HTTPS. ops/scripts/panel-ssl.sh tarafindan uretildi, ELLE
 # DUZENLEME.
 #
-# Mevcut studio-panel.conf (80, default_server) DOKUNULMADAN kalir: IP
-# uzerinden erisim calismaya devam eder, yonetici kendini disarida birakmaz.
+# Mevcut studio-panel.conf (80, default_server) dokunulmadan kalir. IP icin
+# ayri yonlendirme blogu sertifika ve HTTPS blogu hazir olduktan sonra yazilir.
 
 server {
     listen 80;
@@ -212,4 +215,5 @@ fi
 [ -n "$TMP_OLD" ] && rm -f "$TMP_OLD"
 
 docker exec proxy-server nginx -s reload
-echo "✓ Panel artik https://$HOST uzerinden yayinda (IP uzerinden HTTP erisimi de duruyor)."
+echo "✓ Panel artik https://$HOST uzerinden yayinda."
+"$(cd "$(dirname "$0")" && pwd)/panel-ip-redirect.sh"

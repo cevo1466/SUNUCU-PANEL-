@@ -29,8 +29,9 @@ valid_domain() {
 }
 valid_optional_domain() { [[ -z "$1" ]] || valid_domain "$1"; }
 
-ask_valid panel_host 'Panel alan adı' '' valid_domain 'Sahip olduğun gerçek bir panel alan adı gir.'
-ask_valid mail_domain 'Posta alanı' '' valid_domain 'Sahip olduğun gerçek bir posta alanı gir.'
+ask_valid mail_domain 'Ana alan adı (panel.<alan-adı> açılacak)' '' valid_domain 'Sahip olduğun gerçek ana alan adını gir.'
+panel_host="panel.$mail_domain"
+printf 'Panel adresi: %s; posta adresi: mail.%s\n' "$panel_host" "$mail_domain"
 ask_valid dns_primary_ns 'Yetkili DNS sunucu adı' "ns1.$mail_domain" valid_domain 'Geçerli bir DNS sunucu adı gir.'
 ask_valid dns_secondary_ns 'İkinci DNS sunucu adı (yoksa boş bırak)' '' valid_optional_domain 'Geçerli bir DNS sunucu adı gir veya boş bırak.'
 
@@ -64,4 +65,9 @@ docker exec "$container_name" /var/www/vhosts/studio-panel/ops/scripts/ssl-boots
 
 printf 'Alan adları kaydedildi. Panel A kaydı: %s -> %s\n' "$panel_host" "$public_ip"
 printf 'Posta A kaydı: mail.%s -> %s\n' "$mail_domain" "$public_ip"
-printf 'DNS ve SSL hazır olana kadar panel IP üzerinden HTTP ile açılır: http://%s\n' "$public_ip"
+if docker exec "$container_name" sh -c \
+  'test -s "/etc/letsencrypt/live/$PANEL_HOSTNAME/fullchain.pem" && test -f /etc/nginx/conf.d/studio-panel-ip-redirect.conf' >/dev/null 2>&1; then
+  printf 'Panel: https://%s (http://%s -> HTTPS 301)\n' "$panel_host" "$public_ip"
+else
+  printf 'DNS ve SSL hazır olana kadar panel IP üzerinden HTTP ile açılır: http://%s\n' "$public_ip"
+fi
