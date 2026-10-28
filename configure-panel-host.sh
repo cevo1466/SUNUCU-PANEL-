@@ -33,19 +33,23 @@ fi
 
 old_env=$(mktemp "$ROOT/.env.before-panel-host.XXXXXX")
 new_env=$(mktemp "$ROOT/.env.new-panel-host.XXXXXX")
+old_redirect=$(mktemp)
+redirect_conf="$ROOT/data/state/nginx-conf/studio-panel-ip-redirect.conf"
 cp -p .env "$old_env"
 cp -p .env "$new_env"
 chmod 0600 "$old_env" "$new_env"
 changed=0
+had_redirect=0
 rollback() {
   local status=$?
   trap - EXIT
   if (( changed && status != 0 )); then
     printf 'Panel adresi güncellenemedi; önceki ayarlar geri yükleniyor.\n' >&2
     cp -p "$old_env" .env
+    if (( had_redirect )); then cp -p "$old_redirect" "$redirect_conf"; fi
     docker compose --env-file .env up -d --no-build --force-recreate || true
   fi
-  rm -f "$old_env" "$new_env"
+  rm -f "$old_env" "$new_env" "$old_redirect"
   exit "$status"
 }
 trap rollback EXIT
@@ -55,6 +59,13 @@ old_host=$(sed -n 's/^PANEL_HOSTNAME=//p' .env | head -1)
 if [[ "$old_host" != "$panel_host" ]]; then
   mv -f "$new_env" .env
   changed=1
+  # An old 301 must not send visitors to the previous hostname while the
+  # new certificate is still waiting for DNS.
+  if [[ -f "$redirect_conf" ]]; then
+    cp -p "$redirect_conf" "$old_redirect"
+    rm -f "$redirect_conf"
+    had_redirect=1
+  fi
   docker compose --env-file .env up -d --no-build --force-recreate
   ready=0
   for _ in {1..120}; do

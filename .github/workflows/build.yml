@@ -125,8 +125,11 @@ jobs:
           docker exec panel-smoke sh -ec '
             cert=/etc/letsencrypt/live/panel.invalid
             mkdir -p "$cert"
+            echo "Creating CI certificate"
             openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=panel.invalid \
-              -keyout "$cert/privkey.pem" -out "$cert/fullchain.pem" >/dev/null 2>&1
+              -keyout "$cert/privkey.pem" -out "$cert/fullchain.pem"
+            sed -i "s/^PANEL_DOMAIN_PENDING=1$/PANEL_DOMAIN_PENDING=0/" /var/www/vhosts/studio-panel/.env.loopkit
+            echo "Copying CI certificate to proxy"
             docker exec proxy-server mkdir -p "$cert"
             docker cp -L "$cert/privkey.pem" "proxy-server:$cert/privkey.pem"
             docker cp -L "$cert/fullchain.pem" "proxy-server:$cert/fullchain.pem"
