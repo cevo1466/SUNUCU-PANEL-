@@ -576,12 +576,14 @@ export function MailManager({
                         {account.enabled ? "Durdur" : "Etkinleştir"}
                       </Button>
                       <Button
-                        size="icon"
-                        variant="ghost"
+                        size="sm"
+                        variant="danger"
                         aria-label={`${account.address} hesabını sil`}
+                        title={`${account.address} hesabını sil`}
                         onClick={() => setDeleting(account)}
                       >
                         <TrashIcon aria-hidden="true" />
+                        Sil
                       </Button>
                     </div>
                   </li>
