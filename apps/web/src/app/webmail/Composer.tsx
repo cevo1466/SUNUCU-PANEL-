@@ -295,10 +295,6 @@ export function Composer({
         onInput={() => setPreviewHtml(null)}
       />
 
-      {address.toLowerCase().endsWith("@mervenuruluc.com.tr") && (
-        <p className="wm-composer-notice">Mor M kurumsal tasarımı gönderimde otomatik uygulanır. Mesaj metninizi buraya yazın.</p>
-      )}
-
       {previewHtml && (
         <div className="wm-brand-preview">
           <div className="wm-brand-preview-head">

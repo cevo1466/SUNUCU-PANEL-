@@ -1,7 +1,6 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { env } from "../env.js";
-import { renderWebmailBrand, usesMerveBrand } from "../lib/webmail-brand.js";
 import { verifyImapLogin, releaseImap } from "../lib/webmail-imap.js";
 import {
   WEBMAIL_COOKIE_NAME,
@@ -372,9 +371,7 @@ const webmailRoutes: FastifyPluginAsync = async (fastify) => {
       return { error: "Önizleme hazırlanamadı." };
     }
     return {
-      html: usesMerveBrand(identity.address)
-        ? renderWebmailBrand({ ...body.data, address: identity.address })
-        : body.data.html || body.data.text || "",
+      html: body.data.html || body.data.text || "",
     };
   });
 

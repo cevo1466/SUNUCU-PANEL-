@@ -6,7 +6,7 @@ import { invalidInput } from "../lib/validation.js";
 const phpBinBodySchema = z.object({ php_bin: z.string().min(1) });
 
 const adminerRoutes: FastifyPluginAsync = async (fastify) => {
-  fastify.addHook("preHandler", fastify.requireAuth);
+  fastify.addHook("preHandler", fastify.requireAdmin);
 
   fastify.get("/api/adminer", async () => {
     return getAdminerStatus();
