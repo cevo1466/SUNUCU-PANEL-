@@ -587,6 +587,7 @@ export function WebmailApp({ address, onSignedOut }: { address: string; onSigned
         <div className="wm-composer-backdrop" onClick={(e) => e.target === e.currentTarget && setComposer(null)}>
           <Composer
             seed={composer}
+            address={address}
             onClose={() => setComposer(null)}
             onSent={() => {
               setComposer(null);

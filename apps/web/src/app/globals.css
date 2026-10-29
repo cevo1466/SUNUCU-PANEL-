@@ -1899,6 +1899,34 @@ a { color: inherit; text-decoration: none; }
   font-size: 12px;
 }
 
+.wm-brand-preview {
+  margin: 8px 16px;
+  border: 1px solid var(--sp-line);
+  border-radius: var(--sp-radius);
+  overflow: hidden;
+}
+.wm-brand-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 12px;
+  background: var(--sp-surface-alt);
+}
+.wm-brand-preview-head button {
+  color: var(--sp-accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.wm-brand-preview iframe {
+  display: block;
+  width: 100%;
+  height: min(48vh, 520px);
+  border: 0;
+  background: #f2f0f6;
+}
+
 .wm-composer-foot {
   display: flex;
   gap: 7px;

@@ -4,6 +4,7 @@ import type { ImapFlow } from "imapflow";
 import { env } from "../env.js";
 import { withImap } from "./webmail-imap.js";
 import type { WebmailIdentity } from "./webmail-session.js";
+import { renderWebmailBrand, usesMerveBrand } from "./webmail-brand.js";
 
 /**
  * Webmail'in posta işlemleri. IMAP/SMTP ayrıntısı burada kalır; route katmanı
@@ -481,7 +482,9 @@ export async function sendMessage(
     cc: message.cc || undefined,
     bcc: message.bcc || undefined,
     subject: message.subject,
-    html: message.html || undefined,
+    html: usesMerveBrand(identity.address)
+      ? renderWebmailBrand({ address: identity.address, subject: message.subject, html: message.html, text: message.text })
+      : message.html || undefined,
     text: message.text || undefined,
     inReplyTo: message.inReplyTo || undefined,
     references: message.references?.length ? message.references : undefined,

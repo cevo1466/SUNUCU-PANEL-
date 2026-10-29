@@ -46,10 +46,12 @@ const MAX_TOTAL_ATTACHMENT_BYTES = 25 * 1024 * 1024;
  */
 export function Composer({
   seed,
+  address,
   onClose,
   onSent,
 }: {
   seed: ComposerSeed;
+  address: string;
   onClose: () => void;
   onSent: () => void;
 }) {
@@ -61,6 +63,7 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -162,6 +165,23 @@ export function Composer({
     }
   }
 
+  async function preview() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await webmailApi.preview({
+        subject: subject.trim(),
+        html: editorRef.current?.innerHTML ?? "",
+        text: editorRef.current?.innerText ?? "",
+      });
+      setPreviewHtml(result.html);
+    } catch (err) {
+      setError(err instanceof WebmailApiError ? err.message : "Önizleme açılamadı.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveDraft() {
     setBusy(true);
     setError(null);
@@ -219,7 +239,7 @@ export function Composer({
           <input
             className="sp-input"
             value={subject}
-            onChange={(e) => setSubject(e.target.value)}
+            onChange={(e) => { setSubject(e.target.value); setPreviewHtml(null); }}
             placeholder="Konu"
           />
         </label>
@@ -272,7 +292,22 @@ export function Composer({
         role="textbox"
         aria-multiline="true"
         aria-label="Mesaj metni"
+        onInput={() => setPreviewHtml(null)}
       />
+
+      {address.toLowerCase().endsWith("@mervenuruluc.com.tr") && (
+        <p className="wm-composer-notice">Mor M kurumsal tasarımı gönderimde otomatik uygulanır. Mesaj metninizi buraya yazın.</p>
+      )}
+
+      {previewHtml && (
+        <div className="wm-brand-preview">
+          <div className="wm-brand-preview-head">
+            <strong>Alıcı görünümü</strong>
+            <button type="button" onClick={() => setPreviewHtml(null)}>Önizlemeyi kapat</button>
+          </div>
+          <iframe title="Gönderilecek e-postanın önizlemesi" sandbox="" srcDoc={previewHtml} />
+        </div>
+      )}
 
       {attachments.length > 0 && (
         <ul className="wm-attach-list">
@@ -305,6 +340,9 @@ export function Composer({
       {notice && <p className="wm-composer-notice">{notice}</p>}
 
       <footer className="wm-composer-foot">
+        <Button variant="secondary" onClick={preview} disabled={busy}>
+          Önizle
+        </Button>
         <Button variant="primary" onClick={send} loading={busy}>
           Gönder
         </Button>

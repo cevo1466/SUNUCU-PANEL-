@@ -144,6 +144,12 @@ export const webmailApi = {
       body: JSON.stringify(draft),
     }),
 
+  preview: (draft: Pick<OutgoingDraft, "subject" | "html" | "text">) =>
+    request<{ html: string }>("/api/webmail/preview", {
+      method: "POST",
+      body: JSON.stringify(draft),
+    }),
+
   saveDraft: (draft: OutgoingDraft) =>
     request<{ saved: boolean }>("/api/webmail/draft", {
       method: "POST",
