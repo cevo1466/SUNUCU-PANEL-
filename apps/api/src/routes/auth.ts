@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { hitRateLimit } from "../lib/rate-limit.js";
 import { registerInputSchema, loginInputSchema } from "@studio-panel/shared";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import { createSession, destroySession, SESSION_COOKIE_NAME } from "../lib/session.js";
@@ -81,6 +82,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       return invalidInput(parsed.error.issues);
     }
     const { email, password } = parsed.data;
+
+    if (hitRateLimit(`login:ip:${request.ip}`, 20, 60_000) || hitRateLimit(`login:email:${email}`, 8, 60_000)) {
+      reply.code(429);
+      return { error: "Çok fazla deneme. Bir dakika sonra tekrar deneyin." };
+    }
 
     // Panel iki tür girişe açık: tek yönetici hesabı (OWNER_EMAIL, role=admin)
     // ve domain başına tanımlanmış müşteri hesapları (role=customer). Başka

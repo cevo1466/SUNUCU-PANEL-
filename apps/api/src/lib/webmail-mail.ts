@@ -471,7 +471,7 @@ export async function sendMessage(
     // loopback olduğu için doğrulama kapalı (bkz. webmail-imap.ts aynı gerekçe).
     secure: false,
     requireTLS: false,
-    tls: { rejectUnauthorized: false },
+    tls: { rejectUnauthorized: !["127.0.0.1", "localhost", "::1"].includes(env.WEBMAIL_SMTP_HOST) },
     auth: { user: identity.address, pass: identity.password },
   });
 

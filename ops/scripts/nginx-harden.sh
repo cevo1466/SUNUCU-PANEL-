@@ -30,7 +30,7 @@ if docker exec proxy-server sh -c "grep -q 'server_tokens off;' /etc/nginx/nginx
 fi
 
 echo "» server_tokens off ekleniyor"
-BACKUP="/tmp/nginx.conf.before-server-tokens.$(date -u +%Y%m%d%H%M%S)"
+BACKUP="$(docker exec proxy-server mktemp /etc/nginx/nginx.conf.before-server-tokens.XXXXXX)"
 docker exec proxy-server sh -c "cp /etc/nginx/nginx.conf '$BACKUP'"
 
 docker exec proxy-server sh -c "sed -i '/http {/a\\    server_tokens off;' /etc/nginx/nginx.conf"

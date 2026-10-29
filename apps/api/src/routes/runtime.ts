@@ -51,6 +51,18 @@ const runtimeRoutes: FastifyPluginAsync = async (fastify) => {
       return invalidInput(parsed.error.issues);
     }
 
+    // Müşteri, panelin kendi iç servislerine (web 3000, API 3001, DB'ler, Adminer)
+    // vhost proxy'si kuramaz.
+    const port = parsed.data.proxy_port;
+    if (
+      request.currentUser!.role !== "admin" &&
+      typeof port === "number" &&
+      (port < 1024 || [3000, 3001, 3306, 5432, 5433, 8098].includes(port))
+    ) {
+      reply.code(403);
+      return { error: "Bu port panel iç servisleri için ayrılmış." };
+    }
+
     try {
       const runtime = validateRuntimeInput(parsed.data);
       await fastify.pg.query(

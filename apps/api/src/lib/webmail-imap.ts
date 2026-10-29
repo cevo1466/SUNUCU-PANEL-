@@ -63,7 +63,7 @@ function imapOptions(address: string, password: string): ImapFlowOptions {
     // bırakmak her girişi "self signed certificate" ile düşürürdü, sertifikayı
     // güvenilir kök yapmak ise loopback için gereksiz bir tören.
     secure: env.WEBMAIL_IMAP_PORT === 993,
-    tls: { rejectUnauthorized: false },
+    tls: { rejectUnauthorized: !["127.0.0.1", "localhost", "::1"].includes(env.WEBMAIL_IMAP_HOST) },
     auth: { user: address, pass: password },
     logger: false,
     // Kendi zaman aşımımız var; imapflow'unki daha uzun olabiliyor.

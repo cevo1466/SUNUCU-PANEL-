@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import { hitRateLimit } from "../lib/rate-limit.js";
 import { z } from "zod";
 import { env } from "../env.js";
 import { verifyImapLogin, releaseImap } from "../lib/webmail-imap.js";
@@ -125,6 +126,10 @@ const webmailRoutes: FastifyPluginAsync = async (fastify) => {
       return { error: "E-posta adresi ve parola gerekli." };
     }
     const address = parsed.data.address.trim().toLowerCase();
+    if (hitRateLimit(`wm:ip:${request.ip}`, 20, 60_000) || hitRateLimit(`wm:addr:${address}`, 8, 60_000)) {
+      reply.code(429);
+      return { error: "Çok fazla deneme. Bir dakika sonra tekrar deneyin." };
+    }
     const at = address.lastIndexOf("@");
     if (at <= 0) {
       reply.code(400);

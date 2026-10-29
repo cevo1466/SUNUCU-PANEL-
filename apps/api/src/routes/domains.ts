@@ -656,6 +656,7 @@ const domainsRoutes: FastifyPluginAsync = async (fastify) => {
         request.currentUser!.id,
         id,
       ]);
+      await fastify.pg.query("DELETE FROM sessions WHERE user_id = $1", [currentOwner.id]);
       await fastify.pg.query("DELETE FROM users WHERE id = $1", [currentOwner.id]);
       return { ok: true };
     },
