@@ -218,6 +218,39 @@ export interface SslInfo {
   domain_name: string;
   ssl_status: boolean;
   ssl_expiry: string | null;
+  /** nginx'in sundugu sertifika: certbot (letsencrypt) veya panelden yuklenen ucretli CA (custom). */
+  ssl_type?: "letsencrypt" | "custom";
+  ssl_issuer?: string | null;
+}
+
+/** Sertifikanin acik alanlari (ozel anahtar ASLA donmez). */
+export interface SslCertDetails {
+  present: boolean;
+  type?: "letsencrypt" | "custom";
+  subject?: string;
+  issuer?: string;
+  serial?: string;
+  notBefore?: string | null;
+  notAfter?: string | null;
+  fingerprint?: string;
+  sans: string[];
+  keyAlgo?: string;
+  keyBits?: number | null;
+  chainLength?: number;
+  /** CSR uretildi, CA'dan gelen sertifika henuz yuklenmedi. */
+  pendingCsr: boolean;
+}
+
+export interface SslCsrInput {
+  commonName: string;
+  sans: string[];
+  organization: string;
+  unit: string;
+  country: string;
+  state: string;
+  city: string;
+  email: string;
+  keyType: "rsa2048" | "rsa4096" | "ec256";
 }
 
 export interface FtpAccount {
@@ -741,6 +774,23 @@ export const api = {
       }>;
       log: string;
     }>(`/api/domains/${id}/ssl/request`, { method: "POST" }),
+  sslDetails: (id: number) => request<{ details: SslCertDetails }>(`/api/domains/${id}/ssl/details`),
+  createSslCsr: (id: number, input: SslCsrInput) =>
+    request<{ csr: string }>(`/api/domains/${id}/ssl/csr`, { method: "POST", body: JSON.stringify(input) }),
+  pendingSslCsr: (id: number) => request<{ csr: string }>(`/api/domains/${id}/ssl/csr`),
+  installCustomSsl: (id: number, input: { certificate: string; chain: string; privateKey: string }) =>
+    request<{
+      ok: boolean;
+      ssl: SslInfo;
+      www: boolean;
+      chain: "ok" | "selfsigned";
+      keySource: "csr" | "uploaded" | "current" | "";
+    }>(`/api/domains/${id}/ssl/custom`, { method: "POST", body: JSON.stringify(input) }),
+  removeCustomSsl: (id: number) =>
+    request<{ ok: boolean; fallback: "letsencrypt" | "http"; ssl: SslInfo }>(
+      `/api/domains/${id}/ssl/custom`,
+      { method: "DELETE" },
+    ),
   markSslIssued: (id: number, expiresAt: string) =>
     request<{ ssl: SslInfo }>(`/api/domains/${id}/ssl/mark-issued`, {
       method: "POST",

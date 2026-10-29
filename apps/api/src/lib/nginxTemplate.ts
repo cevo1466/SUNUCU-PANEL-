@@ -159,10 +159,33 @@ export function httpsIsLive(domainName: string): boolean {
   }
 }
 
+/** Panelden yüklenen (ücretli CA) sertifikaların dizini — bkz. ops/scripts/ssl-custom.sh. */
+export function customCertDir(domainName: string): string {
+  return `/etc/letsencrypt/custom/${domainName}`;
+}
+
+/**
+ * Canlı vhost ŞU AN özel (ücretli CA) sertifikayı mı gösteriyor?
+ *
+ * Şablon sertifika yolunu her zaman `live/<domain>/` (Let's Encrypt) olarak
+ * üretir. Özel sertifikalı bir domainde "Nginx config üret" bunu körlemesine
+ * yazsaydı, satın alınmış sertifika sessizce Let's Encrypt yoluna düşerdi —
+ * httpsIsLive() ile aynı tuzak sınıfı. Canlı dosyaya bakılır, DB'ye değil.
+ */
+export function customCertIsLive(domainName: string): boolean {
+  try {
+    const conf = fsSync.readFileSync(path.join(LIVE_CONF_DIR, `${domainName}.conf`), "utf8");
+    return conf.includes(`${customCertDir(domainName)}/`);
+  } catch {
+    return false;
+  }
+}
+
 export async function renderVhostConfig(
   domainName: string,
   documentRoot: string,
   runtime: DomainRuntime = STATIC_RUNTIME,
+  options: { forceHttp?: boolean } = {},
 ): Promise<{ path: string; content: string; https: boolean }> {
   assertValidDomainName(domainName);
 
@@ -187,8 +210,16 @@ export async function renderVhostConfig(
   // sessizce düz HTTP'ye düşürmesi demekti: config yeniden üretiliyor,
   // deploy-vhost.sh onu canlıya kopyalıyor ve 443 bloğu kayboluyordu.
   // Sertifika alma tek tıka indiği için bu tuzağa düşmek de kolaylaştı.
-  const https = httpsIsLive(domainName);
-  const content = https ? (activateHttps(rendered) ?? rendered) : rendered;
+  // forceHttp: özel sertifika kaldırılırken geri dönülecek Let's Encrypt
+  // sertifikası yoksa vhost bilinçli olarak düz HTTP'ye çevrilir.
+  const https = !options.forceHttp && httpsIsLive(domainName);
+  let content = https ? (activateHttps(rendered) ?? rendered) : rendered;
+  if (https && customCertIsLive(domainName)) {
+    content = content.replaceAll(
+      `/etc/letsencrypt/live/${domainName}/`,
+      `${customCertDir(domainName)}/`,
+    );
+  }
 
   const outPath = domainConfPath(domainName);
   await fs.mkdir(GENERATED_DIR, { recursive: true });

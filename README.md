@@ -60,6 +60,18 @@ Cloudflare DNS aktarımı mevcut panel kaynak koduyla birlikte gelir. Yeni sunuc
 
 HetrixTools izleme için aynı `.env` dosyasına kendi hesabının `HETRIX_API_KEY` anahtarı; Telegram bildirimleri için `TELEGRAM_BOT_TOKEN` ve `TELEGRAM_CHAT_ID` eklenir. Ardından `sudo docker compose --env-file .env up -d` komutu konteyneri yeni ayarlarla açar. Anahtarlar Git deposuna yazılmaz. Panel özetindeki CPU, bellek ve disk kartları doğrudan bu VDS'yi ölçer; HetrixTools sonuçları yalnız anahtar bağlandıktan sonra ayrı bir kartta görünür.
 
+## Ücretli SSL sertifikası (CSR / CRT / CA paketi)
+
+Panelde **Domainler → alan adı → SSL/TLS** sekmesi hem ücretsiz Let's Encrypt'i hem de ücretli CA sertifikalarını yönetir; ek kurulum gerekmez, tek komut kurulumla hazır gelir.
+
+1. **CSR oluştur**: ortak ad, alternatif adlar, kurum bilgileri ve anahtar türü (RSA 2048/4096 veya ECDSA P-256) girilir. Özel anahtar sunucuda kalır, yalnızca CSR görünür. CSR'ı CA'nın (Sectigo, DigiCert, GlobalSign…) sipariş ekranına yapıştırın.
+2. CA, doğrulamadan sonra **CRT** ve **CA paketi** (ara sertifikalar) gönderir. **Sertifikayı yükle** ile bunları yapıştırın veya dosya olarak seçin. CSR'ı panelde oluşturduysanız özel anahtar alanı boş kalır; başka yerde ürettiyseniz parolasız PEM anahtarı da yüklenir.
+3. Panel kurmadan önce doğrular: sertifika süresi, alan adı kapsamı (CN/SAN), özel anahtar eşleşmesi ve zincir bütünlüğü. Eşleşmeyen veya zinciri eksik sertifika **kurulmaz**, nedeni ekranda yazılır; nginx testi başarısız olursa eski yapılandırmaya otomatik dönülür.
+4. Ücretli sertifika **otomatik yenilenmez**. Bitişine 30, 14 ve 7 gün kala Telegram bildirimi gelir (Telegram bağlıysa). Yenilemek için CA'dan yeniletip yeni CSR ile aynı adımları tekrarlayın.
+5. **Özel sertifikayı kaldır**: Let's Encrypt sertifikası varsa ona döner, yoksa alan adı düz HTTP'ye iner.
+
+Sertifikalar `/etc/letsencrypt/custom/<alan-adı>/` altında (yalnızca root) tutulur ve konteyner yeniden oluşturulsa da, `update.sh` ile güncelleseniz de korunur. Güncellemede `domains.ssl_type` sütunu otomatik eklenir (veritabanı migration'ı konteyner açılışında çalışır).
+
 ## Yedek kontrolü
 
 Yeni kurulumda otomatik yedekleme kapalıdır. Yönetici panelin **Yedekler** ekranından açtığında tüm domainler günlük 02:40 UTC'de yedeklenir, son yedekler pazar 04:20 UTC'de doğrulanır. Aynı düğmeden kapatılabilir. Ekranda her domain için **Yedek al** düğmesi de vardır; otomatik zamanlayıcıdan bağımsızdır. SSH üzerinden elle çalıştırmak için:

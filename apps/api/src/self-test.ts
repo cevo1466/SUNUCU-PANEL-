@@ -15,6 +15,7 @@ import { buildDefaultDnsRecords, toCloudflarePayload } from "./lib/dnsProvision.
 import { dkimPrivateKeyPath } from "./lib/dkim.js";
 import { renderZoneFile, isZoneGenerated, isZoneDeployed, zoneFilePath, deployedZonePath } from "./lib/localDns.js";
 import { activateHttps, serverNamesFor } from "./lib/nginxTemplate.js";
+import { parseInfo, parseResult } from "./lib/ssl-custom.js";
 import { buildLocationBlock } from "./lib/runtime.js";
 import type { Response as InjectResponse } from "light-my-request";
 import { checkResources, checkUptime, checkLocalServices, isBadWithDeadband } from "./lib/alerts.js";
@@ -2491,6 +2492,57 @@ async function main() {
           sslIssueScript.includes('grep -qE "^[[:space:]]*listen[[:space:]]+443[[:space:]]+ssl"'),
           "ssl-issue.sh yorumsuz direktif arayan grep desenini kullanmali (duz 'listen 443 ssl' araması yorumlu satıra kanar)",
         );
+      }
+
+      // --- Ucretli (ozel) sertifika: ssl-custom.sh <-> panel sozlesmesi ---
+      //
+      // Uc yer ayni kuralda anlasmali: ssl-issue.sh'in sed hatti, nginxTemplate
+      // .activateHttps() ve ssl-custom.sh'in sed hatti (HTTPS henuz yokken
+      // ozel sertifika kurulursa vhost'u o acar). Ayrisirlarsa "sertifika
+      // yuklendi ama 443 acilmadi" gibi sessiz bir bozulma olur.
+      {
+        const customScriptPath = path.join(PROJECT_ROOT, "ops", "scripts", "ssl-custom.sh");
+        const customScript = await fs.readFile(customScriptPath, "utf8");
+        const sedRule = "sed -n '/--- HTTPS (443, HTTP\\/2)/,$p'";
+        assert.ok(
+          customScript.includes(sedRule) && sslIssueScript.includes(sedRule),
+          "ssl-custom.sh ve ssl-issue.sh HTTPS aktivasyon sed hattini AYNI kullanmali",
+        );
+        assert.ok(
+          customScript.includes('grep -qE "^[[:space:]]*listen[[:space:]]+443[[:space:]]+ssl"'),
+          "ssl-custom.sh de yorumsuz 443 direktifi aramali",
+        );
+        await execFileAsync("bash", ["-n", customScriptPath]);
+
+        const info = parseInfo(
+          [
+            "present=1",
+            "type=custom",
+            "subject=C = TR, CN = ornek.com",
+            "issuer=O = Test CA",
+            "not_after=2027-01-02T03:04:05Z",
+            "sans=DNS:ornek.com,DNS:www.ornek.com",
+            "key_bits=2048",
+            "chain_length=3",
+            "pending_csr=1",
+          ].join("\n"),
+        );
+        assert.equal(info.present, true);
+        assert.equal(info.type, "custom");
+        assert.deepEqual(info.sans, ["ornek.com", "www.ornek.com"]);
+        assert.equal(info.keyBits, 2048);
+        assert.equal(info.chainLength, 3);
+        assert.equal(info.pendingCsr, true);
+        assert.equal(info.notAfter, "2027-01-02T03:04:05.000Z");
+        assert.equal(parseInfo("present=0\npending_csr=0").present, false);
+
+        const res = parseResult(
+          "x\nSSL_RESULT domain=ornek.com expiry=2027-01-02T03:04:05Z type=custom www=1 chain=ok key=csr issuer=Sectigo Limited\n",
+        );
+        assert.equal(res?.expiry, "2027-01-02T03:04:05Z");
+        assert.equal(res?.www, "1");
+        assert.equal(res?.key, "csr");
+        assert.equal(res?.issuer, "Sectigo Limited", "bosluklu issuer son alan olarak okunmali");
       }
 
       // --- root'un dokundugu dosyalar panele geri verilmeli ---

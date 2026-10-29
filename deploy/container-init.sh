@@ -321,10 +321,13 @@ fi
 docker exec proxy-server nginx -t
 
 # The inner proxy does not share /etc/letsencrypt with the outer container.
-# Restore its certificate copies whenever it was recreated.
-if [[ -d /etc/letsencrypt/live ]]; then
-  for cert_dir in /etc/letsencrypt/live/*; do
-    [[ -f "$cert_dir/fullchain.pem" ]] || continue
+# Restore its certificate copies whenever it was recreated. live/ holds the
+# Let's Encrypt certificates; custom/ holds paid-CA certificates installed from
+# the panel (ops/scripts/ssl-custom.sh) and must be restored the same way, or
+# nginx fails with "BIO_new_file() failed" for every domain that uses one.
+if [[ -d /etc/letsencrypt/live || -d /etc/letsencrypt/custom ]]; then
+  for cert_dir in /etc/letsencrypt/live/* /etc/letsencrypt/custom/*; do
+    [[ -f "$cert_dir/fullchain.pem" && -f "$cert_dir/privkey.pem" ]] || continue
     docker exec proxy-server mkdir -p "$cert_dir"
     docker cp -L "$cert_dir/fullchain.pem" "proxy-server:$cert_dir/fullchain.pem"
     docker cp -L "$cert_dir/privkey.pem" "proxy-server:$cert_dir/privkey.pem"

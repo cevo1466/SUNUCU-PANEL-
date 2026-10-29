@@ -65,7 +65,7 @@ while IFS= read -r DOMAIN; do
     # panel.* sertifikalarinin `domains` tablosunda karsiligi yok ve UPDATE
     # sessizce 0 satir etkiler (hata degil).
     node "$DB_QUERY" \
-      "UPDATE domains SET ssl_status=TRUE, ssl_expiry=\$1::timestamptz WHERE domain_name=\$2" \
+      "UPDATE domains SET ssl_status=TRUE, ssl_expiry=\$1::timestamptz WHERE domain_name=\$2 AND ssl_type <> 'custom'" \
       "$EXPIRY" "$DOMAIN" >/dev/null
     rm -f "$STATE_FILE"
     echo "✓ $DOMAIN yenilendi; yeni bitiş: $EXPIRY"
@@ -123,5 +123,27 @@ Kontrol: sudo $(dirname "$0")/ssl-renew.sh" \
 done <<EOF
 $DOMAINS
 EOF
+
+# --- OZEL (UCRETLI CA) SERTIFIKALAR ---
+#
+# certbot bunlari bilmez ve yenilemez; yukarıdaki döngü onlara hiç dokunmaz.
+# Sessizce dolmalarına izin vermemek için bitişe 30/14/7 gün kala (ve dolmuşsa
+# her gece) Telegram'a bildirilir. Panel domains.ssl_expiry'yi yüklerken
+# sertifikadan okuduğu için tarih gerçektir.
+CUSTOM_ROWS="$(node "$DB_QUERY" \
+  "SELECT domain_name, EXTRACT(DAY FROM (ssl_expiry - now()))::int FROM domains WHERE ssl_type='custom' AND ssl_status=TRUE AND ssl_expiry IS NOT NULL" \
+  2>/dev/null || true)"
+while IFS=$'\t' read -r CDOMAIN CDAYS; do
+  [ -n "${CDOMAIN:-}" ] && [ -n "${CDAYS:-}" ] || continue
+  if [ "$CDAYS" -le 0 ] || [ "$CDAYS" = "7" ] || [ "$CDAYS" = "14" ] || [ "$CDAYS" = "30" ]; then
+    printf '%s ALARM domain=%s custom_days_left=%s\n' "$(date -u +%FT%TZ)" "$CDOMAIN" "$CDAYS" >> "$ALARM_LOG"
+    node "$(dirname "$0")/notify.mjs" \
+      "Ücretli SSL bitiyor: $CDOMAIN" \
+      "Panelden yüklenen sertifika $CDAYS gün sonra bitiyor. Otomatik yenilenmez: CA'dan yenileyin, yeni CSR üretip CRT'yi panelden yükleyin (Domain > SSL)." \
+      critical || true
+  fi
+done <<EOF2
+$CUSTOM_ROWS
+EOF2
 
 exit "$FAILED"
