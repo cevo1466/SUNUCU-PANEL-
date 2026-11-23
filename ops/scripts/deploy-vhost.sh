@@ -34,6 +34,10 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SRC_CONF="$PROJECT_ROOT/ops/generated/${DOMAIN}.conf"
 DEST_CONF="/etc/nginx/conf.d/${DOMAIN}.conf"
 
+# Yayin durdurulmussa (bkz. pause-vhost.sh) bu script durdurma sayfasinin
+# uzerine yazip siteyi sessizce yeniden yayina almasin.
+[ ! -e "${DEST_CONF}.paused" ] || fail "$DOMAIN yayini durdurulmus; once panelden 'Yayini devam ettir' deyin."
+
 [ -f "$SRC_CONF" ] || fail "Üretilmiş config bulunamadı: $SRC_CONF (önce POST /api/domains/:id/nginx-config çağrılmalı)"
 
 echo "» $SRC_CONF -> $DEST_CONF kopyalanıyor (önce .bak yedeği alınıyor)..."

@@ -17,6 +17,6 @@ DOMAIN="$1"
 [[ "$DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$ ]] \
   || fail "Geçersiz domain adı: $DOMAIN"
 
-rm -f "/etc/nginx/conf.d/${DOMAIN}.conf" "/etc/nginx/conf.d/${DOMAIN}.conf".bak.*
+rm -f "/etc/nginx/conf.d/${DOMAIN}.conf" "/etc/nginx/conf.d/${DOMAIN}.conf".bak.* "/etc/nginx/conf.d/${DOMAIN}.conf.paused"
 docker exec proxy-server nginx -s reload
 echo "✓ /etc/nginx/conf.d/${DOMAIN}.conf kaldırıldı (varsa) ve proxy-server reload edildi."

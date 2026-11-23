@@ -16,6 +16,7 @@ import {
   getOwnedDomain,
   isConfigGenerated,
   isNginxDeployed,
+  isPublishPaused,
   parseIdParam,
   VHOSTS_ROOT,
 } from "../lib/domain.js";
@@ -36,6 +37,7 @@ import { invalidInput } from "../lib/validation.js";
 
 const execFileAsync = promisify(execFile);
 const DEPLOY_VHOST_SCRIPT = path.join(PROJECT_ROOT, "ops", "scripts", "deploy-vhost.sh");
+const PAUSE_VHOST_SCRIPT = path.join(PROJECT_ROOT, "ops", "scripts", "pause-vhost.sh");
 const REMOVE_VHOST_SCRIPT = path.join(PROJECT_ROOT, "ops", "scripts", "remove-vhost.sh");
 
 // sudoers'ta SADECE bu script'e, SADECE domain adı argümanıyla şifresiz
@@ -103,6 +105,7 @@ function serializeDomain(row: {
     directory_exists: directoryExists(row.directory_path),
     config_generated: isConfigGenerated(row.domain_name),
     nginx_deployed: isNginxDeployed(row.domain_name),
+    publish_paused: isPublishPaused(row.domain_name),
     // owner_role "customer" ise bu domain için ayrı bir müşteri girişi var —
     // domainTools/DomainCustomerAccess panelinin göstereceği durum.
     has_customer_account: row.owner_role === "customer",
@@ -502,6 +505,10 @@ const domainsRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const { domain_name, directory_path } = owned;
+    if (isPublishPaused(domain_name)) {
+      reply.code(409);
+      return { error: "Yayın durdurulmuş. Önce yayını devam ettirin, sonra config üretin." };
+    }
     const { rows: runtimeRows } = await fastify.pg.query(
       "SELECT runtime_type, php_version, proxy_port FROM domains WHERE id = $1",
       [id],
@@ -534,6 +541,49 @@ const domainsRoutes: FastifyPluginAsync = async (fastify) => {
       content,
     };
   });
+
+  // --- Yayını durdur / devam ettir ---
+  // Siteyi SİLMEZ: nginx vhost'u 503 "yayın durduruldu" sayfasına çevrilir,
+  // dosyalar/DB/posta/DNS/sertifika yerinde kalır (bkz. ops/scripts/pause-vhost.sh).
+  // Sahiplik kontrolü diğer /api/domains/:id/* yolları gibi getOwnedDomain ile.
+  for (const action of ["pause", "resume"] as const) {
+    fastify.post(`/api/domains/:id/publish/${action}`, async (request, reply) => {
+      const id = parseIdParam((request.params as { id: string }).id);
+      if (id === null) {
+        reply.code(400);
+        return { error: "Geçersiz domain id." };
+      }
+      const owned = await getOwnedDomain(fastify.pg, id, request.currentUser!.id, request.currentUser!.role);
+      if (!owned) {
+        reply.code(404);
+        return { error: "Domain bulunamadı." };
+      }
+      const paused = isPublishPaused(owned.domain_name);
+      if (action === "pause" && paused) {
+        reply.code(409);
+        return { error: "Yayın zaten durdurulmuş." };
+      }
+      if (action === "resume" && !paused) {
+        reply.code(409);
+        return { error: "Yayın zaten açık." };
+      }
+      if (action === "pause" && !isNginxDeployed(owned.domain_name)) {
+        reply.code(409);
+        return { error: "Domain şu an Nginx'te yayında değil, durdurulacak bir şey yok." };
+      }
+      try {
+        await execFileAsync("sudo", [PAUSE_VHOST_SCRIPT, owned.domain_name, action], { timeout: 20_000 });
+      } catch (err) {
+        const message =
+          err && typeof err === "object" && "stderr" in err && (err as { stderr?: string }).stderr
+            ? (err as { stderr: string }).stderr.trim()
+            : (err as Error).message;
+        reply.code(500);
+        return { error: `İşlem uygulanamadı: ${message}` };
+      }
+      return { ok: true, publish_paused: isPublishPaused(owned.domain_name) };
+    });
+  }
 
   // --- Domain başına müşteri girişi (madde 8) ---
   // Admin bu domain için ayrı, ana panelden bağımsız bir giriş açar/günceller.

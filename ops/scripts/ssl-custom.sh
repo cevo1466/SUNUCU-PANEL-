@@ -43,6 +43,10 @@ LIVE_DIR="$LE_ROOT/live/$DOMAIN"
 GENERATED_CONF="${PROJECT_ROOT}/ops/generated/${DOMAIN}.conf"
 DEST_CONF="/etc/nginx/conf.d/${DOMAIN}.conf"
 
+# Yayin durdurulmussa (bkz. pause-vhost.sh) bu script durdurma sayfasinin
+# uzerine yazip siteyi sessizce yeniden yayina almasin.
+[ ! -e "${DEST_CONF}.paused" ] || fail "$DOMAIN yayini durdurulmus; once panelden 'Yayini devam ettir' deyin."
+
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 

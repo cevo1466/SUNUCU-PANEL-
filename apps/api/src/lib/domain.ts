@@ -72,6 +72,19 @@ export function domainBackupPath(domainName: string): string {
 // olmadığını OKUYARAK (yazmadan) kontrol eder. devuser /etc/nginx/conf.d'yi
 // okuyabiliyor ama yazamıyor (bkz. MEMORY.md Oturum 1) — bu yüzden bu her
 // zaman gerçek bir kontrol, asla "muhtemelen" değil.
+/**
+ * Yayın durduruldu mu? Kayda değil nginx dizinindeki gerçek dosyaya bakar:
+ * pause-vhost.sh orijinal conf'u `<domain>.conf.paused` olarak saklar.
+ */
+export function isPublishPaused(domainName: string): boolean {
+  assertValidDomainName(domainName);
+  try {
+    return fsSync.existsSync(`/etc/nginx/conf.d/${domainName}.conf.paused`);
+  } catch {
+    return false;
+  }
+}
+
 export function isNginxDeployed(domainName: string): boolean {
   assertValidDomainName(domainName);
   const systemConfPath = `/etc/nginx/conf.d/${domainName}.conf`;

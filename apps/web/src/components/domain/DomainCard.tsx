@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowTopRightOnSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { ArrowTopRightOnSquareIcon, PauseCircleIcon, PlayCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
 import type { BackupVersion, Domain, DomainDiskUsage } from "@/lib/api";
 import { formatBytes, formatDate } from "@/lib/format";
 import { Panel } from "@/components/ui/Panel";
@@ -16,8 +16,10 @@ export function DomainStatusBadges({ domain }: { domain: Domain }) {
       <Badge tone={domain.directory_exists ? "ok" : "warn"}>
         {domain.directory_exists ? "Dizin hazır" : "Dizin yok"}
       </Badge>
-      <Badge tone={domain.nginx_deployed ? "ok" : domain.config_generated ? "info" : "neutral"}>
-        {domain.nginx_deployed
+      <Badge tone={domain.publish_paused ? "warn" : domain.nginx_deployed ? "ok" : domain.config_generated ? "info" : "neutral"}>
+        {domain.publish_paused
+          ? "Yayın durduruldu"
+          : domain.nginx_deployed
           ? "Nginx'te yayında"
           : domain.config_generated
             ? "Config hazır"
@@ -69,6 +71,7 @@ export function DomainCard({
   diskUsage,
   onGenerateNginx,
   onDelete,
+  onTogglePublish,
   isAdmin,
 }: {
   domain: Domain;
@@ -78,6 +81,8 @@ export function DomainCard({
   diskUsage?: DomainDiskUsage | null;
   onGenerateNginx: () => void;
   onDelete?: () => void;
+  /** Yayını durdur / devam ettir. */
+  onTogglePublish?: () => void;
   isAdmin?: boolean;
 }) {
   const sections = buildDomainTools({ domain, dnsCount, backup, onGenerateNginx, isAdmin });
@@ -115,6 +120,16 @@ export function DomainCard({
             <ArrowTopRightOnSquareIcon aria-hidden="true" />
             Siteyi aç
           </a>
+          {onTogglePublish && domain.nginx_deployed && (
+            <Button variant="ghost" size="sm" onClick={onTogglePublish}>
+              {domain.publish_paused ? (
+                <PlayCircleIcon aria-hidden="true" />
+              ) : (
+                <PauseCircleIcon aria-hidden="true" />
+              )}
+              {domain.publish_paused ? "Yayını devam ettir" : "Yayını durdur"}
+            </Button>
+          )}
           {onDelete && (
             <Button
               variant="ghost"

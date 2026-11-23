@@ -41,6 +41,10 @@ WEBROOT="/var/www/vhosts/${DOMAIN}/public"
 ACME_WEBROOT="/var/www/vhosts/_acme"
 GENERATED_CONF="${PROJECT_ROOT}/ops/generated/${DOMAIN}.conf"
 DEST_CONF="/etc/nginx/conf.d/${DOMAIN}.conf"
+
+# Yayin durdurulmussa (bkz. pause-vhost.sh) bu script durdurma sayfasinin
+# uzerine yazip siteyi sessizce yeniden yayina almasin.
+[ ! -e "${DEST_CONF}.paused" ] || fail "$DOMAIN yayini durdurulmus; once panelden 'Yayini devam ettir' deyin."
 CERT_DIR="/etc/letsencrypt/live/${DOMAIN}"
 
 # --- Temizlik: bu script KALICI .bak DOSYASI BIRAKMAZ ---

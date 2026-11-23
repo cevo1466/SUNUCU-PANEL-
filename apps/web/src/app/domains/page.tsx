@@ -197,6 +197,23 @@ function DomainsView() {
     }
   }
 
+  async function togglePublish(domain: Domain) {
+    const pausing = !domain.publish_paused;
+    if (pausing && !window.confirm(`${domain.domain_name} yayından kaldırılsın mı? Site 503 "yayın durduruldu" sayfası gösterir; dosyalar, posta ve DNS silinmez.`)) {
+      return;
+    }
+    try {
+      await api.setPublishPaused(domain.id, pausing);
+      await reloadDomains();
+      toast.ok(
+        pausing ? "Yayın durduruldu" : "Yayın devam ediyor",
+        pausing ? `${domain.domain_name} artık "yayın durduruldu" sayfası gösteriyor.` : `${domain.domain_name} yeniden yayında.`,
+      );
+    } catch (err) {
+      toast.error("İşlem yapılamadı", err instanceof ApiError ? err.message : "İşlem tamamlanmadı.");
+    }
+  }
+
   async function generateConfig(domain: Domain) {
     try {
       const result = await api.generateNginxConfig(domain.id);
@@ -263,6 +280,7 @@ function DomainsView() {
                 domain={domain}
                 diskUsage={usageById.get(domain.id)}
                 onGenerateNginx={() => generateConfig(domain)}
+                onTogglePublish={() => togglePublish(domain)}
                 onDelete={isAdmin ? () => setDeleting(domain) : undefined}
                 isAdmin={isAdmin}
               />

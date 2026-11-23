@@ -77,6 +77,23 @@ export function NginxPanel({ domain, onGenerated }: { domain: Domain; onGenerate
   const [applyError, setApplyError] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
+  async function togglePublish() {
+    const pausing = !domain.publish_paused;
+    if (pausing && !window.confirm(`${domain.domain_name} yayından kaldırılsın mı? Dosyalar, posta ve DNS silinmez.`)) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.setPublishPaused(domain.id, pausing);
+      onGenerated?.();
+      toast.ok(pausing ? "Yayın durduruldu" : "Yayın devam ediyor", domain.domain_name);
+    } catch (err) {
+      toast.error("İşlem yapılamadı", err instanceof ApiError ? err.message : "İşlem tamamlanmadı.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function generate() {
     setBusy(true);
     try {
@@ -118,14 +135,21 @@ export function NginxPanel({ domain, onGenerated }: { domain: Domain; onGenerate
         }
         actions={
           <>
-            <Badge tone={domain.nginx_deployed ? "ok" : domain.config_generated ? "info" : "neutral"}>
-              {domain.nginx_deployed
+            <Badge tone={domain.publish_paused ? "warn" : domain.nginx_deployed ? "ok" : domain.config_generated ? "info" : "neutral"}>
+              {domain.publish_paused
+                ? "Yayın durduruldu"
+                : domain.nginx_deployed
                 ? "Nginx'te yayında"
                 : domain.config_generated
                   ? "Config üretildi"
                   : "Config üretilmedi"}
             </Badge>
-            <Button variant="primary" size="sm" onClick={generate} loading={busy}>
+            {domain.nginx_deployed && (
+              <Button variant="ghost" size="sm" onClick={togglePublish} loading={busy}>
+                {domain.publish_paused ? "Yayını devam ettir" : "Yayını durdur"}
+              </Button>
+            )}
+            <Button variant="primary" size="sm" onClick={generate} loading={busy} disabled={domain.publish_paused}>
               {domain.config_generated ? "Yeniden üret" : "Config üret"}
             </Button>
           </>

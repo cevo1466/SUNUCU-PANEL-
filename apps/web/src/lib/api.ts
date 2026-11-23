@@ -164,6 +164,7 @@ export interface Domain {
   directory_exists: boolean;
   config_generated: boolean;
   nginx_deployed: boolean;
+  publish_paused: boolean;
   has_customer_account: boolean;
   customer_email: string | null;
   runtime_type: "static" | "php" | "proxy";
@@ -488,6 +489,11 @@ export const api = {
     }>(
       `/api/domains/${id}`,
       { method: "DELETE", body: JSON.stringify({ confirm }) },
+    ),
+  setPublishPaused: (id: number, paused: boolean) =>
+    request<{ ok: boolean; publish_paused: boolean }>(
+      `/api/domains/${id}/publish/${paused ? "pause" : "resume"}`,
+      { method: "POST" },
     ),
   generateNginxConfig: (id: number) =>
     request<{
